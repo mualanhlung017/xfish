@@ -7,12 +7,14 @@ optimization campaign.  A faster one-off benchmark is not a new baseline.
 
 - Initial source: `d5b4860dcddb43bded8aa3804ea53eadb60efa2e`
 - Initial release: `v0.1.0-baseline`
-- Current promoted release: `v0.2.0-nnue`
-- Current change set: AVX2 one-removed/one-added HalfKA delta update plus a
-  native 64-bit sparse-FC bit scan
+- Current promoted release: `v0.3.0-nnue-thp`
+- Current change set: the `v0.2.0-nnue` AVX2 HalfKA/sparse-scan changes plus a
+  Linux-local, transparent-huge-page-backed NNUE network mapping
 - Windows: clang-cl, AVX2, profile-guided optimization, ThinLTO
 - Linux: Clang 22, `ARCH=x86-64-avx2`, profile-guided optimization, Full LTO
 - Linux execution: four threads pinned to CPUs `120-123`
+- Linux memory policy: one private roughly 64 MiB NNUE network mapping per
+  process, requested with `MADV_HUGEPAGE`; Windows retains the shared backend
 - Linux fixed-node reference median: 3,058,906 NPS (five runs; retained only as
   an orientation value for the initial baseline because promotion uses a direct
   interleaved A/B test)
@@ -81,20 +83,29 @@ Each item is deliberately small so its effect can be measured and reverted.
 | A03 | Accumulator | Reduce address generation and hoist column bases | rejected (two variants) |
 | A04 | Accumulator | Prefetch HalfKA columns while constructing changed indices | rejected |
 | A05 | Accumulator | Re-evaluate threat-weight prefetch distance | rejected (two variants) |
-| A06 | Accumulator | Specialize the 2-removed/1-added PSQ update | retained, below gate |
-| F01 | Transformer | Fuse clamp/shift/pack/nonzero-mask work | queued |
-| F02 | Transformer | Remove avoidable lane permutations via stored layout | queued |
-| F03 | Transformer | Specialize the 1024-wide AVX2 transform loop | queued |
+| A06 | Accumulator | Specialize the 2-removed/1-added PSQ update | rejected cross-platform |
+| A07 | Accumulator | Share the AVX2 feature tile between accumulator passes | rejected after confirmation |
+| A08 | Accumulator | Pair common threat add/sub updates | rejected |
+| A09 | Accumulator | Jointly scan white/black accumulator stacks | rejected |
+| F01 | Transformer | Fuse clamp/shift/pack/nonzero-mask work | rejected variants |
+| F02 | Transformer | Replace pack path with multiply/pack formulation | rejected |
+| F03 | Transformer | Specialize the 1024-wide AVX2 transform loop | codegen/profile saturated |
 | S01 | Sparse FC | Split non-VNNI AVX2 dot products into two chains | rejected |
 | S02 | Sparse FC | Unroll sparse columns in pairs with a scalar tail | rejected |
 | S03 | Sparse FC | Use a native 64-bit bitset scan | accepted with A02 |
 | S04 | Sparse FC | Prefetch the next 128-byte random FC0 column | rejected |
+| S05-S12 | Sparse FC | Staging, masks, index lists and wider unrolling | rejected variants |
 | D01 | Dense FC | Schedule broadcasts/loads around `vpmaddubsw` latency | rejected after confirmation |
-| D02 | Dense FC | Tune fixed 64/128 input kernels and reduction tree | queued |
-| R01 | Activation | Fuse paired square/clipped ReLU stores | queued |
-| R02 | Reduction | Compare horizontal-sum dependency trees in final FC | queued |
-| M01 | Memory | Validate alignment annotations and selective prefetch | in progress |
-| M02 | Memory | Check cache-line placement of per-evaluation buffers | queued |
+| D02 | Dense FC | Split products into independent accumulator chains | rejected cross-platform |
+| D03 | Dense FC | Pair two output neurons per input traversal | below gate |
+| D04-D08 | Dense FC | Wider pairing and alternate instruction schedules | rejected variants |
+| E01-E02 | Evaluation | Shorten return path and merge scan work | rejected |
+| H02 | Refresh | Port upstream hybrid king-bucket refresh | rejected |
+| I01 | Inlining | Force-inline the network propagation wrapper | rejected |
+| L01 | Layout | Align the sparse-FC hot loop | rejected |
+| P02-P03 | Codegen | Add host-specific `-mtune` on Linux/Windows | rejected |
+| M01 | Memory | Back the Linux NNUE network with anonymous THP | accepted |
+| M02 | Memory | Check cache-line placement of per-evaluation buffers | profiled; no isolated gain |
 
 The queue is reordered after each profile.  A campaign reaches saturation only
 after every profile-visible NNUE hotspot has either passed the gate or has at
@@ -227,9 +238,80 @@ and Linux
 
 Extending the same column-hoisting scheme to the 2-removed/1-added and
 1-removed/2-added PSQ shapes produced `+0.326%` on a seven-pair Linux screen,
-with a 95% interval of `+0.116%` to `+0.845%` relative to A02+S03.  It is kept
-as a candidate to combine with another independent gain, but is not part of
-`v0.2.0-nnue` and receives no optimization commit by itself.
+with a 95% interval of `+0.116%` to `+0.845%` relative to A02+S03.  The
+corresponding nine-pair Windows screen was `-0.329%`, with a 95% interval of
+`-0.458%` to `+1.154%`.  Because Windows crossed the `-0.30%` platform floor,
+A06 was reverted and received no optimization commit.
+
+### Post-v0.2 SIMD and code-generation sweep
+
+After `v0.2.0-nnue`, the remaining profile-visible NNUE kernels were exercised
+with small, independently reversible variants.  Unless a platform is stated,
+these are seven-pair Linux AVX2 PGO screens against `v0.2.0-nnue`.  Every
+reported candidate matched the 2,221,258-node correctness signature.
+
+| ID | Variant | Platform/pairs | Paired gain | Bootstrap 95% CI |
+|---|---|---:|---:|---:|
+| A07 | Reuse one loaded HalfKA tile across accumulator passes | Linux/9 | -0.285% | -0.716% to +0.201% |
+| A08 | Pair the common threat add/sub shape | Linux/7 | -0.975% | -1.220% to -0.192% |
+| A09 | Scan both accumulator perspectives together | Linux/7 | -1.594% | -1.895% to -1.074% |
+| F02 | Alternate AVX2 multiply/pack transform | Linux/7 | +0.135% | -0.230% to +0.961% |
+| S05 | Stage sparse-FC products before accumulation | Linux/9 | +0.082% | -0.653% to +0.892% |
+| S06 | Merge adjacent nonzero-mask stores | Linux/7 | -0.075% | -0.913% to +0.515% |
+| S07 | Compact the nonzero index representation | Linux/7 | -0.249% | -0.537% to +0.926% |
+| S08 | Materialize a sparse index list before FC0 | Linux/7 | +0.156% | -0.721% to +0.330% |
+| S09 | Partially unroll the sparse column loop | Linux/7 | -0.400% | -0.991% to -0.003% |
+| S10 | Process three sparse columns per iteration | Linux/7 | +0.303% | -0.136% to +0.556% |
+| S11 | Store and consume sparse indices in pairs | Linux/7 | -0.721% | -1.219% to +0.143% |
+| E01 | Return the latest accumulator directly | Linux/7 | -0.014% | -0.422% to +0.295% |
+| E02 | Merge accumulator validity scans | Linux/7 | +0.017% | -0.384% to +0.096% |
+
+The dense-layer sweep found small isolated results but no cross-platform
+promotion.  D02 reached `+0.915%` on a nine-pair Linux confirmation, then
+measured `-0.634%` on Windows.  D03 measured `+0.521%` on Linux and `+0.365%`
+on Windows, still below the combined one-percent gate.  Wider output grouping,
+FC2 chaining and alternate product schedules ranged from `-0.541%` to
+`+0.216%`.  An `llvm-mca` comparison of D02, D03, D08 and the original loop
+predicted the same 16-cycle block throughput on both Haswell and Zen 2, which
+closed this scheduling branch after the measured failures.
+
+Additional whole-path checks were also neutral or negative: host-specific
+tuning was `-0.076%` on the Zen 2 server and `-0.596%` on Haswell Windows;
+force-inlining propagation was `-0.025%`; aligning the sparse loop was
+`-1.045%`; and the upstream-style hybrid king refresh was `-0.451%`.  These
+results, together with the earlier accumulator, transformer and sparse-FC
+screens, leave memory translation as the only post-v0.2 candidate with a
+repeatable gate-sized effect.
+
+### Promoted M01 Linux transparent-huge-page mapping
+
+The Ubuntu server configures anonymous transparent huge pages as `madvise`,
+while transparent huge pages for shmem are disabled.  The previous 64 MiB NNUE
+POSIX shared-memory mapping therefore remained backed by base pages.  M01 uses
+the existing NUMA-local fallback allocator on Linux; that allocator creates an
+anonymous mapping and applies `MADV_HUGEPAGE`.  A live `/proc/PID/smaps` check
+reported a 67,584 KiB network region with all 67,584 KiB in `AnonHugePages`.
+Windows and non-Linux platforms retain the existing shared-memory selection.
+
+| Platform | Workload/pairs | Baseline median NPS | Candidate median NPS | Paired gain | Bootstrap 95% CI |
+|---|---:|---:|---:|---:|---:|
+| Linux, 4 threads | 1M nodes/9 | 3,051,429 | 3,133,739 | +2.354% | +1.767% to +2.678% |
+| Windows, 1 thread | 1M nodes/9 | 427,981 | 427,638 | -0.128% | -0.436% to +0.163% |
+| Windows, 1 thread | two independent sets/18 | 413,882 | 412,374 | -0.072% | -0.300% to +0.198% |
+
+The 18-pair Windows estimate pools the nine-pair 100k-node screen with the
+nine-pair 1M-node confirmation; both sets independently matched signatures
+and exercised preprocessor-identical Windows engine code.  Combined with the
+Linux confirmation, its geometric gain is `+1.134%`, and the deterministic
+analyzer accepts every promotion condition.  A clean-commit 1M-node rerun is
+retained with the release evidence as an additional guard against layout and
+packaging changes.
+
+The trade-off is explicit: Linux processes no longer deduplicate the NNUE
+network through POSIX shared memory, so each engine process consumes roughly
+64 MiB of local network memory.  The intended server workload gains local THP
+coverage and avoids base-page translation pressure; deployments that value
+cross-process deduplication more than NPS can revert M01 independently.
 
 ## Commands
 

@@ -262,6 +262,27 @@ sf_always_inline inline void apply_psq_features(IndexType                       
     }
 }
 
+#if defined(USE_AVX2)
+
+// A quiet move replaces exactly one HalfKA feature. Keep both column bases
+// outside the tile loop and form one delta before touching the accumulator.
+sf_always_inline inline void apply_psq_pair(IndexType       j,
+                                            vec_t           acc[],
+                                            const vec_i8_t* removedColumn,
+                                            const vec_i8_t* addedColumn) {
+    removedColumn += j * Tiling::NumRegs;
+    addedColumn += j * Tiling::NumRegs;
+
+    for (IndexType k = 0; k < Tiling::NumRegs; ++k)
+    {
+        const vec_t delta =
+          vec_sub_16(vec_convert_8_16(addedColumn[k]), vec_convert_8_16(removedColumn[k]));
+        acc[k] = vec_add_16(acc[k], delta);
+    }
+}
+
+#endif
+
 template<int sign>
 sf_always_inline inline void apply_threat_features(IndexType j,
                                                    vec_t     acc[Tiling::NumRegs],
@@ -356,23 +377,45 @@ void apply_combined(Color                              perspective,
     vec_t      acc[Tiling::NumRegs];
     psqt_vec_t psqt[Tiling::NumPsqtRegs];
 
-    for (IndexType j = 0; j < Dimensions / Tiling::TileHeight; ++j)
+    const auto apply_accumulator_tiles = [&](auto&& applyPsq) {
+        for (IndexType j = 0; j < Dimensions / Tiling::TileHeight; ++j)
+        {
+            const usize tileOff  = j * Tiling::TileHeight;
+            auto*       fromTile = reinterpret_cast<const vec_t*>(&fromAcc[tileOff]);
+            auto*       toTile   = reinterpret_cast<vec_t*>(&toAcc[tileOff]);
+
+            for (IndexType k = 0; k < Tiling::NumRegs; ++k)
+                acc[k] = fromTile[k];
+
+            applyPsq(j, acc);
+
+            apply_threat_features<-1>(j, acc, thrRemoved, featureTransformer);
+            apply_threat_features<+1>(j, acc, thrAdded, featureTransformer);
+
+            for (IndexType k = 0; k < Tiling::NumRegs; k++)
+                vec_store(&toTile[k], acc[k]);
+        }
+    };
+
+#if defined(USE_AVX2)
+    if (psqRemoved.ssize() == 1 && psqAdded.ssize() == 1)
     {
-        const usize tileOff  = j * Tiling::TileHeight;
-        auto*       fromTile = reinterpret_cast<const vec_t*>(&fromAcc[tileOff]);
-        auto*       toTile   = reinterpret_cast<vec_t*>(&toAcc[tileOff]);
+        const auto* removedColumn = reinterpret_cast<const vec_i8_t*>(
+          &featureTransformer.weights[psqRemoved[0] * Dimensions]);
+        const auto* addedColumn = reinterpret_cast<const vec_i8_t*>(
+          &featureTransformer.weights[psqAdded[0] * Dimensions]);
 
-        for (IndexType k = 0; k < Tiling::NumRegs; ++k)
-            acc[k] = fromTile[k];
-
-        apply_psq_features<-1>(j, acc, psqRemoved, featureTransformer);
-        apply_psq_features<+1>(j, acc, psqAdded, featureTransformer);
-
-        apply_threat_features<-1>(j, acc, thrRemoved, featureTransformer);
-        apply_threat_features<+1>(j, acc, thrAdded, featureTransformer);
-
-        for (IndexType k = 0; k < Tiling::NumRegs; k++)
-            vec_store(&toTile[k], acc[k]);
+        apply_accumulator_tiles([&](IndexType j, vec_t localAcc[]) {
+            apply_psq_pair(j, localAcc, removedColumn, addedColumn);
+        });
+    }
+    else
+#endif
+    {
+        apply_accumulator_tiles([&](IndexType j, vec_t localAcc[]) {
+            apply_psq_features<-1>(j, localAcc, psqRemoved, featureTransformer);
+            apply_psq_features<+1>(j, localAcc, psqAdded, featureTransformer);
+        });
     }
 
     for (IndexType j = 0; j < PSQTBuckets / Tiling::PsqtTileHeight; ++j)

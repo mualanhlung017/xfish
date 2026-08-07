@@ -3,15 +3,19 @@
 This document is the reproducibility contract for the long-running NNUE
 optimization campaign.  A faster one-off benchmark is not a new baseline.
 
-## Frozen baseline
+## Baseline history
 
-- Source: `d5b4860dcddb43bded8aa3804ea53eadb60efa2e`
-- Release: `v0.1.0-baseline`
+- Initial source: `d5b4860dcddb43bded8aa3804ea53eadb60efa2e`
+- Initial release: `v0.1.0-baseline`
+- Current promoted release: `v0.2.0-nnue`
+- Current change set: AVX2 one-removed/one-added HalfKA delta update plus a
+  native 64-bit sparse-FC bit scan
 - Windows: clang-cl, AVX2, profile-guided optimization, ThinLTO
 - Linux: Clang 22, `ARCH=x86-64-avx2`, profile-guided optimization, Full LTO
 - Linux execution: four threads pinned to CPUs `120-123`
 - Linux fixed-node reference median: 3,058,906 NPS (five runs; retained only as
-  an orientation value because promotion uses a direct interleaved A/B test)
+  an orientation value for the initial baseline because promotion uses a direct
+  interleaved A/B test)
 
 ## Measurement and promotion gate
 
@@ -72,22 +76,24 @@ Each item is deliberately small so its effect can be measured and reverted.
 | H00 | Harness | Interleaved cross-platform A/B runner and statistics | complete |
 | P00 | Profile | Linux instrumented profile plus PGO hot-function inventory | complete |
 | P01 | Profile | Windows PGO-count/disassembly inventory | complete |
-| A01 | Accumulator | Tune AVX2 register tiling (8/12/16 YMM trade-off) | queued |
-| A02 | Accumulator | Pair common add/sub feature cases into one pass | queued |
-| A03 | Accumulator | Reduce address generation and hoist column bases | queued |
+| A01 | Accumulator | Tune AVX2 register tiling (8/12/16 YMM trade-off) | profiled; 8 retained |
+| A02 | Accumulator | Pair common add/sub feature cases into one pass | accepted with S03 |
+| A03 | Accumulator | Reduce address generation and hoist column bases | rejected (two variants) |
 | A04 | Accumulator | Prefetch HalfKA columns while constructing changed indices | rejected |
-| A05 | Accumulator | Re-evaluate threat-weight prefetch distance | queued |
+| A05 | Accumulator | Re-evaluate threat-weight prefetch distance | rejected (two variants) |
+| A06 | Accumulator | Specialize the 2-removed/1-added PSQ update | retained, below gate |
 | F01 | Transformer | Fuse clamp/shift/pack/nonzero-mask work | queued |
 | F02 | Transformer | Remove avoidable lane permutations via stored layout | queued |
 | F03 | Transformer | Specialize the 1024-wide AVX2 transform loop | queued |
-| S01 | Sparse FC | Split non-VNNI AVX2 dot products into two chains | queued |
-| S02 | Sparse FC | Unroll sparse columns in pairs with a scalar tail | queued |
-| S03 | Sparse FC | Tune bitset scan and weight-pointer arithmetic | queued |
-| D01 | Dense FC | Schedule broadcasts/loads around `vpmaddubsw` latency | queued |
+| S01 | Sparse FC | Split non-VNNI AVX2 dot products into two chains | rejected |
+| S02 | Sparse FC | Unroll sparse columns in pairs with a scalar tail | rejected |
+| S03 | Sparse FC | Use a native 64-bit bitset scan | accepted with A02 |
+| S04 | Sparse FC | Prefetch the next 128-byte random FC0 column | rejected |
+| D01 | Dense FC | Schedule broadcasts/loads around `vpmaddubsw` latency | rejected after confirmation |
 | D02 | Dense FC | Tune fixed 64/128 input kernels and reduction tree | queued |
 | R01 | Activation | Fuse paired square/clipped ReLU stores | queued |
 | R02 | Reduction | Compare horizontal-sum dependency trees in final FC | queued |
-| M01 | Memory | Validate alignment annotations and selective prefetch | queued |
+| M01 | Memory | Validate alignment annotations and selective prefetch | in progress |
 | M02 | Memory | Check cache-line placement of per-evaluation buffers | queued |
 
 The queue is reordered after each profile.  A campaign reaches saturation only
@@ -114,6 +120,20 @@ The Windows PGO inventory recorded 1,153,605 calls through the trained NNUE
 propagation/transform path.  PGO counts establish hot paths but are not timing
 samples, so performance decisions still use the paired cross-platform gate.
 
+A second Linux `-pg` build put explicit no-inline boundaries around the NNUE
+layers.  `FeatureTransformer::transform` accounted for about 4.9% of whole
+engine self time and `NetworkArchitecture::propagate` for about 15.7%.  Within
+the network, the sparse `AffineTransformSparseInput<1024, 32>` first layer was
+the dominant component at about 14.6%; the remaining dense layers and
+activations were each near or below 1.2%.
+
+A one-thread 200,000-node update census covered 10,562,882 accumulator updates.
+The PSQ removed/added shapes were 1/1 in 72.037%, 2/1 in 27.327% and 1/2 in
+0.636%.  Threat updates were much broader: 0/0 was 5.179%, 1/1 was 6.876%, and
+the ten most frequent pairs together covered only 51.819%.  This distribution
+is why fixed PSQ specializations are useful while large threat fast-path tables
+are unlikely to repay their code and address-generation cost.
+
 ## Experiment log
 
 ### A04: prefetch HalfKA columns during index construction
@@ -135,6 +155,81 @@ release.  Binary SHA-256 pairs were Windows
 and Linux
 `8a45d52ed856b3f651d7a833e71a0c6823ebe282141e79b5eb3eca96b8c07742` /
 `25c866a023cbffeb08d9feb255d71d6853e1b4d9ed0fdd6d47903087d52a92c8`.
+
+### A02: common 1/1 HalfKA delta
+
+The 1-removed/1-added AVX2 path hoists both feature-column bases outside the
+tile loop and adds a single widened delta to each accumulator vector.  A full
+standalone confirmation was positive but narrowly missed promotion:
+
+| Platform | Baseline median NPS | Candidate median NPS | Paired gain | Bootstrap 95% CI |
+|---|---:|---:|---:|---:|
+| Windows, 1 thread | 413,119 | 416,011 | +0.551% | -0.858% to +1.702% |
+| Linux, 4 threads | 3,150,106 | 3,191,262 | +1.304% | +0.893% to +1.921% |
+
+The geometric gain was `+0.927%`; A02 therefore remained uncommitted until it
+could be retested as part of a stronger combined candidate.
+
+### Rejected accumulator variants
+
+All rows are direct Linux AVX2 PGO comparisons against the immediately stated
+parent candidate.  Correctness signatures matched in every row.
+
+| ID | Variant | Pairs | Paired gain | Bootstrap 95% CI |
+|---|---|---:|---:|---:|
+| A03a | Precomputed threat-column pointer array | 7 | -0.174% | -0.907% to +0.238% |
+| A03b | In-place scaled threat offsets | 7 | -1.016% | -1.431% to -0.717% |
+| A05a | Raise threat prefetch from LOW/T2 to HIGH/T0 | 7 | -0.450% | -0.790% to -0.090% |
+| A05b | Disable threat prefetch | 7 | -0.359% | -0.656% to +0.171% |
+
+### Sparse-FC and transformer screens
+
+S03 corrected the scalar type of each 64-bit NNZ word from `u128` to `u64`.
+The resulting code uses one `tzcnt`/`blsr` sequence rather than the compiler's
+128-bit pop path.  S03 alone added `+0.459%` over A02, with a 95% interval of
+`-0.078%` to `+0.795%`; it was retained for the combined confirmation.  The
+remaining small variants did not survive screening or confirmation:
+
+| ID | Variant | Pairs | Paired gain | Bootstrap 95% CI |
+|---|---|---:|---:|---:|
+| S01 | Two sparse-FC accumulator chains, on top of S03 | 7 | +0.079% | -0.413% to +0.182% |
+| S02 | Pop/process sparse indices two at a time | 7 | +0.301% | -0.141% to +1.022% |
+| S04 | T0-prefetch both cache lines of the next FC0 column | 7 | -2.263% | -3.336% to -1.670% |
+| D01 | Stage four `vpmaddubsw` products, first screen | 7 | +0.462% | -0.235% to +0.535% |
+| D01 | Independent 9-pair, 1M-node confirmation | 9 | +0.082% | -0.653% to +0.892% |
+| F01a | Combine two adjacent NNZ mask stores | 7 | -0.075% | -0.913% to +0.515% |
+
+### Promoted A02 + S03 baseline
+
+The combined candidate was rebuilt with AVX2, PGO and LTO on both platforms,
+then compared directly with the immutable `v0.1.0-baseline` binaries.  This is
+the first post-fork candidate to pass every promotion condition.
+
+| Platform | Baseline median NPS | Candidate median NPS | Paired gain | Bootstrap 95% CI |
+|---|---:|---:|---:|---:|
+| Windows, 1 thread | 422,514 | 425,373 | +0.905% | -0.083% to +1.221% |
+| Linux, 4 threads | 3,147,437 | 3,208,832 | +1.951% | +1.069% to +2.824% |
+
+The cross-platform geometric gain was `+1.426%`.  Both depth-13 signatures
+searched exactly 2,221,258 nodes, both platforms supplied nine measured pairs,
+neither paired estimate was below `-0.30%`, and neither confidence-interval
+lower bound was below `-0.30%`.  The change was promoted as
+`v0.2.0-nnue`.
+
+Binary SHA-256 pairs used for the decision were Windows
+`ba3a6e594ee2360797549deaf18d188413a87a01f9805bfaec5f92f00ad58237` /
+`916aa1281a4563a5a4c2a3b34afdff84c7e1af16232229767e1e605725e59346`
+and Linux
+`8a45d52ed856b3f651d7a833e71a0c6823ebe282141e79b5eb3eca96b8c07742` /
+`bc9f45153e5df4d73fa5d1f75a43c09624b015bcfb54d175337b6ee814f102aa`.
+
+### A06: capture-shape PSQ specialization
+
+Extending the same column-hoisting scheme to the 2-removed/1-added and
+1-removed/2-added PSQ shapes produced `+0.326%` on a seven-pair Linux screen,
+with a 95% interval of `+0.116%` to `+0.845%` relative to A02+S03.  It is kept
+as a candidate to combine with another independent gain, but is not part of
+`v0.2.0-nnue` and receives no optimization commit by itself.
 
 ## Commands
 

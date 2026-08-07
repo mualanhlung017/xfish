@@ -173,6 +173,22 @@ inline int popcount(Bitboard b) {
 }
 
 // Return the least significant bit in a non-zero bitboard
+inline Square lsb(u64 b) {
+    assert(b);
+
+#if defined(_MSC_VER)
+
+    unsigned long idx;
+    _BitScanForward64(&idx, b);
+    return Square(idx);
+
+#else  // Assumed gcc or compatible compiler
+
+    return Square(__builtin_ctzll(b));
+
+#endif
+}
+
 inline Square lsb(Bitboard b) {
     assert(b);
 
@@ -225,6 +241,13 @@ inline Bitboard least_significant_square_bb(Bitboard b) {
 
 // Finds and clears the least significant bit in a non-zero bitboard
 inline Square pop_lsb(Bitboard& b) {
+    assert(b);
+    const Square s = lsb(b);
+    b &= b - 1;
+    return s;
+}
+
+inline Square pop_lsb(u64& b) {
     assert(b);
     const Square s = lsb(b);
     b &= b - 1;

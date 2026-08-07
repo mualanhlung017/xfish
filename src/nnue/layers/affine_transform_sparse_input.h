@@ -246,7 +246,7 @@ class AffineTransformSparseInput {
 
         for (IndexType k = 0; k < InputDimensions / 256; ++k)
         {
-            u128  bits = load_as<u64>(nnzInfo.bitset + k * 8);
+            u64   bits = load_as<u64>(nnzInfo.bitset + k * 8);
             isize base = k * 64;
 
             auto* base_addr    = input + base * sizeof(i32);

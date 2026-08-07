@@ -987,7 +987,7 @@ bool Position::see_ge(Move m, int threshold) const {
     Bitboard attackers = attackers_to(to, occupied);
 
     // Flying general
-    bool kingAttacks = attackers & pieces(KING);
+    bool kingAttacks = bool(attackers & pieces(KING));
     if (kingAttacks)
         attackers |= attacks_bb<ROOK>(to, occupied) & pieces(KING);
 

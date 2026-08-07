@@ -103,6 +103,24 @@ cd src
 make -j profile-build
 ```
 
+### Windows clang-cl AVX2 baseline
+
+The `xfish` fork includes a reproducible Windows x64 baseline built with
+Visual Studio's `clang-cl` (MSVC ABI and static MSVC runtime), AVX2, LLVM LTO,
+and profile-guided optimization. From PowerShell, run:
+
+```powershell
+./scripts/build-clangcl-pgo.ps1 -Clean
+```
+
+The script downloads and checksum-verifies the pinned default NNUE network, builds
+an instrumented engine, trains it with the built-in benchmark, rebuilds with the
+merged LLVM profile, runs a UCI smoke test, and writes the release package to
+`artifacts/xfish-windows-x64-avx2-pgo.zip`.
+
+The same build runs in GitHub Actions. A push to `master` uploads an Actions
+artifact; pushing a `v*` tag also creates a GitHub release with that package.
+
 Detailed compilation instructions for all platforms can be found in our
 [documentation][wiki-compile-link]. Our wiki also has information about
 the [UCI commands][wiki-uci-link] supported by Pikafish.

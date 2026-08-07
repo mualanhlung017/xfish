@@ -1,6 +1,8 @@
 # Files from build
 **/*.o
 **/*.s
+/artifacts/
+/build/
 src/.depend
 src/temp_builds
 .build_sha.txt

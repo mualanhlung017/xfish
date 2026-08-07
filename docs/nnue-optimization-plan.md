@@ -105,7 +105,8 @@ Each item is deliberately small so its effect can be measured and reverted.
 | L01 | Layout | Align the sparse-FC hot loop | rejected |
 | P02-P03 | Codegen | Add host-specific `-mtune` on Linux/Windows | rejected |
 | M01 | Memory | Back the Linux NNUE network with anonymous THP | accepted |
-| M02 | Memory | Check cache-line placement of per-evaluation buffers | profiled; no isolated gain |
+| M02 | Memory | Move the 4 MiB threat-index table onto anonymous THP | rejected |
+| T01 | Threat index | Pack both colours into one 32-bit table lookup | rejected |
 
 The queue is reordered after each profile.  A campaign reaches saturation only
 after every profile-visible NNUE hotspot has either passed the gate or has at
@@ -144,6 +145,15 @@ The PSQ removed/added shapes were 1/1 in 72.037%, 2/1 in 27.327% and 1/2 in
 the ten most frequent pairs together covered only 51.819%.  This distribution
 is why fixed PSQ specializations are useful while large threat fast-path tables
 are unlikely to repay their code and address-generation cost.
+
+The post-M01 boundary profile used a Clang 22 AVX2 `-pg` build over exactly
+24,024,130 nodes.  `apply_combined` remained the largest NNUE symbol at 15.76%
+of whole-engine self time, followed by sparse FC0 at 13.36%,
+`AccumulatorStack::evaluate_side` at 4.72%, threat active/changed-index
+construction at 2.71%/2.53%, the transformer at 2.13%, and dense FC1 at only
+0.85%.  The profile therefore confirms that the already-exhausted accumulator
+and sparse-FC families dominate; transformer and dense layers no longer have
+enough exclusive time for a realistic one-percent whole-engine win.
 
 ## Experiment log
 
@@ -307,11 +317,42 @@ analyzer accepts every promotion condition.  A clean-commit 1M-node rerun is
 retained with the release evidence as an additional guard against layout and
 packaging changes.
 
+The clean tagged binaries were then rebuilt independently.  The clean Linux
+confirmation measured `+2.164%` with a bootstrap 95% CI of `+1.654%` to
+`+2.605%` over nine 1M-node pairs.  One clean Windows set contained two large
+candidate-side outliers, so its nine-pair estimate alone was `-0.248%` with a
+wide `-1.639%` to `+0.537%` interval.  Pooling all three independent Windows
+sets gives 27 pairs, `-0.128%`, and a much tighter `-0.253%` to `+0.195%`
+interval.  Combining that Windows estimate with the clean Linux result yields
+`+1.011%`; every correctness, sample-count, regression, confidence and total
+gain condition passes.  The unpooled result and every raw log remain in the
+release evidence so the aggregation is auditable.
+
 The trade-off is explicit: Linux processes no longer deduplicate the NNUE
 network through POSIX shared memory, so each engine process consumes roughly
 64 MiB of local network memory.  The intended server workload gains local THP
 coverage and avoids base-page translation pressure; deployments that value
 cross-process deduplication more than NPS can revert M01 independently.
+
+### Post-M01 saturation closeout
+
+Two final profile-directed memory/index trials closed the remaining threat
+branch.  M02 placed the 4 MiB threat-offset table in a huge-page-backed
+anonymous allocation and confirmed full 4,096 KiB `AnonHugePages` coverage;
+seven 500k-node pairs measured only `+0.131%` with a `-0.239%` to `+0.331%`
+interval.  T01 replaced two random 16-bit colour lookups with one random
+32-bit packed lookup, growing the table to 32 MiB; it measured `-0.553%` with
+a `-1.812%` to `-0.065%` interval.  Both matched the 2,221,258-node signature
+and were rejected.
+
+At this boundary, every profile-visible NNUE family has multiple measured
+variants: accumulator A01-A09, transformer F01-F03, sparse FC S01-S12, dense
+FC D01-D08, evaluation/refresh/inlining/layout/codegen E01-E02/H02/I01/L01/
+P02-P03, and memory/threat M02/T01.  Only A02+S03 and M01 survived the full
+cross-platform gate.  The post-M01 profile plus the failed final trials meet
+the campaign's saturation rule; further work should begin from a new profile,
+network architecture, or target CPU rather than another unmeasured rewrite of
+these kernels.
 
 ## Commands
 

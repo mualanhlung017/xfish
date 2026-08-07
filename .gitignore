@@ -3,6 +3,7 @@
 **/*.s
 /artifacts/
 /build/
+/benchmarks/results/
 src/.depend
 src/temp_builds
 .build_sha.txt

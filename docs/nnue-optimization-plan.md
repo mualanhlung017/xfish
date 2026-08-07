@@ -69,13 +69,14 @@ Each item is deliberately small so its effect can be measured and reverted.
 
 | ID | Area | Candidate | State |
 |---|---|---|---|
-| H00 | Harness | Interleaved cross-platform A/B runner and statistics | active |
-| P00 | Profile | Linux cycle profile plus PGO hot-function inventory | queued |
-| P01 | Profile | Windows sampled profile/disassembly inventory | queued |
+| H00 | Harness | Interleaved cross-platform A/B runner and statistics | complete |
+| P00 | Profile | Linux instrumented profile plus PGO hot-function inventory | complete |
+| P01 | Profile | Windows PGO-count/disassembly inventory | complete |
 | A01 | Accumulator | Tune AVX2 register tiling (8/12/16 YMM trade-off) | queued |
 | A02 | Accumulator | Pair common add/sub feature cases into one pass | queued |
 | A03 | Accumulator | Reduce address generation and hoist column bases | queued |
-| A04 | Accumulator | Re-evaluate threat-weight prefetch distance | queued |
+| A04 | Accumulator | Prefetch HalfKA columns while constructing changed indices | rejected |
+| A05 | Accumulator | Re-evaluate threat-weight prefetch distance | queued |
 | F01 | Transformer | Fuse clamp/shift/pack/nonzero-mask work | queued |
 | F02 | Transformer | Remove avoidable lane permutations via stored layout | queued |
 | F03 | Transformer | Specialize the 1024-wide AVX2 transform loop | queued |
@@ -92,6 +93,48 @@ Each item is deliberately small so its effect can be measured and reverted.
 The queue is reordered after each profile.  A campaign reaches saturation only
 after every profile-visible NNUE hotspot has either passed the gate or has at
 least two well-powered failed variants recorded.
+
+## Profile inventory
+
+Linux profiling used a separate Clang 22 AVX2 `-pg` build because the server
+does not permit hardware performance counters.  A pinned one-thread,
+96,023,791-node run spent 18.35% self time in `Network::evaluate`, 16.59% in
+`apply_combined`, 7.01% in `AccumulatorStack::evaluate_side`, and 5.02% in
+`AccumulatorStack::evaluate`.  NNUE and accumulator work therefore accounted
+for about 47% of sampled self time.  `apply_combined` ran 106,540,331 times,
+versus 46,838,283 calls to `Network::evaluate`.
+
+The Linux disassembly shows that the AVX2 `apply_combined` kernel already uses
+eight independent YMM accumulator registers.  Raising that tile to 16 would
+leave no temporary YMM registers and force spills; reducing it would repeat
+the feature-list loop more often.  The immediate opportunities are instead
+the common add/sub cases and address generation repeated once per tile.
+
+The Windows PGO inventory recorded 1,153,605 calls through the trained NNUE
+propagation/transform path.  PGO counts establish hot paths but are not timing
+samples, so performance decisions still use the paired cross-platform gate.
+
+## Experiment log
+
+### A04: prefetch HalfKA columns during index construction
+
+Both candidates were built with AVX2, PGO and LTO, and their depth-13
+correctness signatures matched their respective baselines.  This was a
+five-pair rejection screen, not a promotion run.
+
+| Platform | Baseline median NPS | Candidate median NPS | Paired gain | Bootstrap 95% CI |
+|---|---:|---:|---:|---:|
+| Windows, 1 thread | 384,070 | 387,035 | +0.200% | -1.907% to +2.102% |
+| Linux, 4 threads | 3,157,222 | 3,166,127 | +0.282% | +0.004% to +0.858% |
+
+The cross-platform geometric gain was `+0.241%`, below the `+1.00%` gate, so
+the source change was reverted and received no optimization commit, tag or
+release.  Binary SHA-256 pairs were Windows
+`ba3a6e594ee2360797549deaf18d188413a87a01f9805bfaec5f92f00ad58237` /
+`86baa7871438d66c6563fd0d6bdbb0aa6036977af5ed5d3f1102707d01400830`
+and Linux
+`8a45d52ed856b3f651d7a833e71a0c6823ebe282141e79b5eb3eca96b8c07742` /
+`25c866a023cbffeb08d9feb255d71d6853e1b4d9ed0fdd6d47903087d52a92c8`.
 
 ## Commands
 

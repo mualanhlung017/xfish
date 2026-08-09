@@ -585,14 +585,6 @@ void Position::do_move(Move                      m,
     Piece  pc       = piece_on(from);
     Piece  captured = piece_on(to);
 
-    // If there is neither a potential discovered check nor a hollow cannon,
-    // a checking move can only be checking with the moved piece itself.
-    // Short-circuit on givesCheck so ordinary moves pay no extra attack work.
-    bool needsFullCheckerUpdate =
-      givesCheck
-      && ((st->previous->blockersForKing[them] & from)
-          || (st->previous->checkSquares[ROOK] & pieces(us, CANNON)));
-
     dp.pc   = pc;
     dp.from = from;
     dp.to   = to;
@@ -698,13 +690,9 @@ void Position::do_move(Move                      m,
     // Set capture piece
     st->capturedPiece = captured;
 
-    // YaneuraOu updates this incrementally. Keep Xiangqi's full calculation
-    // for discovered and cannon-screen checks, and use the direct checker in
-    // the unambiguous common case.
-    st->checkersBB = !givesCheck              ? Bitboard(0)
-                     : needsFullCheckerUpdate ? checkers_to(us, king_square(them))
-                                              : square_bb(to);
-    assert(st->checkersBB == checkers_to(us, king_square(them)));
+    // Calculate checkers bitboard (if move gives check)
+    st->checkersBB = givesCheck ? checkers_to(us, king_square(them)) : Bitboard(0);
+    assert(givesCheck == bool(checkers_to(us, king_square(them))));
 
     sideToMove = ~sideToMove;
 

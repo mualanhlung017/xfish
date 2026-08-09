@@ -547,19 +547,16 @@ struct SystemWideSharedConstant {
         }
 #endif
 
-#if defined(__linux__)
-        // Linux shmem is commonly configured without transparent huge pages. The NNUE network is
-        // read-only and performance-sensitive, so prefer the existing NUMA-local allocation path,
-        // which applies MADV_HUGEPAGE to its anonymous mapping.
-        backend = SharedMemoryBackendFallback<T>(shm_name, value);
-#else
         SharedMemoryBackend<T> shm_backend(shm_name, value);
 
         if (shm_backend.is_valid())
+        {
             backend = std::move(shm_backend);
+        }
         else
+        {
             backend = SharedMemoryBackendFallback<T>(shm_name, value);
-#endif
+        }
     }
 
     SystemWideSharedConstant(const SystemWideSharedConstant&)            = delete;

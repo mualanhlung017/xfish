@@ -1,0 +1,24 @@
+services:
+  mongodb:
+    image: mongo:4.4.29
+    restart: unless-stopped
+    volumes:
+      - mongodb-data:/data/db
+
+  server:
+    build:
+      context: ./server
+    restart: unless-stopped
+    depends_on:
+      - mongodb
+    environment:
+      FISHTEST_HOST: mongodb
+      PYTHONUNBUFFERED: "1"
+    ports:
+      - "6543:6543"
+    volumes:
+      - ./secrets/fishtest.secret:/root/fishtest.secret:ro
+      - ./secrets:/run/xfishtest:ro
+
+volumes:
+  mongodb-data:

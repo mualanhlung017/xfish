@@ -1,0 +1,6 @@
+*.local.json
+__pycache__/
+secrets/
+state/
+results/
+logs/

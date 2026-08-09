@@ -1,0 +1,27 @@
+{
+  "server": "http://192.168.100.7:6543",
+  "username": "gr17",
+  "password_file": "/path/to/worker-password",
+  "label": "worker-name",
+  "concurrency": 8,
+  "book": "/path/to/xiangqi.epd",
+  "book_sha256": "a52a4630ad69b99c26ee587232d9d209b82d9e4dc3142dbd4d31a93857d1ea5f",
+  "opening_seed": "xfish-xiangqi-20260808-v1",
+  "network": "/path/to/pikafish.nnue",
+  "network_sha256": "3cd15292bf8c979884262f57fc723959fc0dea43b4d8d544f88db5ceb2479e24",
+  "variantfishtest": "/path/to/variantfishtest",
+  "result_root": "/path/to/results",
+  "state_root": "/path/to/state",
+  "engines": {
+    "d5b4860dcddb43bded8aa3804ea53eadb60efa2e": {
+      "path": "/path/to/xfish-v0.1.0",
+      "sha256": "replace-me",
+      "network": "/path/to/optional-engine-specific.nnue",
+      "network_sha256": "replace-me-or-omit-both-network-fields"
+    },
+    "1699e6ba6df744f83951c66bfd5832647d65e41d": {
+      "path": "/path/to/xfish-v0.3.0",
+      "sha256": "replace-me"
+    }
+  }
+}

@@ -203,6 +203,7 @@ class Position {
     std::array<Piece, SQUARE_NB>        board;
     std::array<Bitboard, PIECE_TYPE_NB> byTypeBB;
     std::array<Bitboard, COLOR_NB>      byColorBB;
+    std::array<Square, COLOR_NB>        kingSquare;
 
     int        pieceCount[PIECE_NB];
     u64        midEncoding[COLOR_NB];
@@ -259,7 +260,8 @@ inline int Position::count() const {
 }
 
 inline Square Position::king_square(Color c) const {
-    return c == WHITE ? lsb(u64(pieces(KING))) : Square(64 + lsb(u64(pieces(KING) >> 64)));
+    assert(is_ok(kingSquare[c]) && piece_on(kingSquare[c]) == make_piece(c, KING));
+    return kingSquare[c];
 }
 
 inline u64 Position::mid_encoding(Color c) const { return midEncoding[c]; }
@@ -331,6 +333,9 @@ inline void Position::put_piece(Piece pc, Square s, DirtyThreats* const dts) {
     pieceCount[make_piece(color_of(pc), ALL_PIECES)]++;
     midEncoding[color_of(pc)] += Eval::NNUE::Features::HalfKAv2_hm::MidMirrorEncoding[pc][s];
 
+    if (type_of(pc) == KING)
+        kingSquare[color_of(pc)] = s;
+
     if (dts)
         update_piece_threats(pc, true, s, dts);
 }
@@ -366,6 +371,9 @@ inline void Position::move_piece(Square from, Square to, DirtyThreats* const dts
     board[to]   = pc;
     midEncoding[color_of(pc)] -= Eval::NNUE::Features::HalfKAv2_hm::MidMirrorEncoding[pc][from];
     midEncoding[color_of(pc)] += Eval::NNUE::Features::HalfKAv2_hm::MidMirrorEncoding[pc][to];
+
+    if (type_of(pc) == KING)
+        kingSquare[color_of(pc)] = to;
 
     if (dts)
         update_piece_threats(pc, true, to, dts);

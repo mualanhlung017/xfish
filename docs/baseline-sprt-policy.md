@@ -29,14 +29,17 @@ binaries, and the same NNUE on both sides.
 
 ## Retrospective baseline audit
 
+`v0.3.0-nnue-thp` is the owner-approved grandfathered baseline. The new SPRT
+policy applies to every baseline promotion after v0.3.0.
+
 | Baseline | Historical evidence | SPRT audit | Decision |
 | --- | --- | --- | --- |
-| `v0.3.0-nnue-thp` | 1,000 fixed STC games, `+2.08 +/- 5.09` Elo | no STC LLR; no LTC run | revoked |
+| `v0.3.0-nnue-thp` | owner-approved pre-policy baseline | grandfathered | retained |
 | `v0.4.0-king-square-cache` | 2,000/10,000 fixed STC games; final `+1.11 +/- 1.80` Elo | no STC LLR; no LTC run | revoked |
 | `v0.5.0-checker-fastpath` | 2,000/10,000 fixed STC games; final `+0.69 +/- 1.73` Elo | no STC LLR; no LTC run | revoked |
 
-The accepted baseline therefore rolls back to `v0.2.0-nnue` at commit
-`f10beeb4e4a60c07375f92ad2884808b824ae88f`. Historical tags, releases, and
+The accepted baseline therefore rolls back to `v0.3.0-nnue-thp` at commit
+`1699e6ba6df744f83951c66bfd5832647d65e41d`. Historical tags, releases, and
 test evidence remain immutable for audit, but they are not accepted baselines.
-The source rollback restores `src/shm.h`, `src/position.h`, and
-`src/position.cpp` byte-for-byte to that baseline.
+The source rollback restores `src/position.h` and `src/position.cpp` to that
+baseline while retaining v0.3.0's Linux THP path in `src/shm.h`.

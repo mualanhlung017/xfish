@@ -1,0 +1,22 @@
+diff --git a/chess/uci.py b/chess/uci.py
+index 8ce1112..7233a4a 100644
+--- a/chess/uci.py
++++ b/chess/uci.py
+@@ -718,7 +718,16 @@ class PopenProcess(object):
+     def _stderr_thread_target(self):
+         """Process stderr lines and filter duplicates through the global deduplicator."""
+         while self.is_alive():
+-            line = self.process.stderr.readline()
++            try:
++                line = self.process.stderr.readline()
++            except ValueError:
++                # Engine.on_terminated() closes all standard streams from the
++                # stdout reader thread.  A concurrent stderr readline may then
++                # wake up on the intentionally closed file.  That is normal
++                # shutdown, not an engine or match failure.
++                if self.process.stderr.closed:
++                    break
++                raise
+             if not line:
+                 continue
+             

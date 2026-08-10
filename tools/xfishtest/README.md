@@ -18,6 +18,13 @@ engine participates in generating, scoring, or filtering the new book.
 The frozen v1 artifact has 79,270 unique positions and SHA-256
 `5ede082489580fb6aeb8c06c3eb34f72a916c5dbb7ee621b350b835dbdc48b0f`.
 
+Apply `patches/variantfishtest-stderr-close-race.patch` to the pinned
+variantfishtest checkout on every worker. It handles only the normal shutdown
+race where the stdout reader closes standard streams while the stderr reader
+is blocked in `readline()`; unexpected `ValueError` remains fatal and visible
+to the artifact auditor. The patched `chess/uci.py` SHA-256 is
+`b09bcb0dc8e34e5bef114c6c668d780bac5b5dd7e67ad6b577b4be76275b3f08`.
+
 ## Test policy
 
 - Each opening is played twice with colors reversed.
@@ -75,6 +82,7 @@ unsupported `setoption` command.
 - `worker/worker.py`: cross-platform worker and deterministic task adapter.
 - `worker/xiangqi_match.py`: strict two-game Xiangqi match wrapper.
 - `worker/report.py`: paired result aggregation and integrity checks.
+- `patches/`: audited fixes applied on top of pinned third-party test tools.
 
 Secrets and machine-local configuration are deliberately ignored by Git.
 Use `server/admin.py create-user --worker-only` for dedicated machine accounts;

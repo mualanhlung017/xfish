@@ -388,16 +388,40 @@ disposition:
   accepted baseline. The strength patch changes node records in all 67
   deterministic depth-7 searches and changes 25 best moves; every move is
   legal, and the same changes reproduce on all four binaries.
-- STC run
+- The first STC attempt
   [`6a79be7308efa0ef6f2f7baa`](http://192.168.100.7:6543/tests/view/6a79be7308efa0ef6f2f7baa)
-  started only after verification. It uses pentanomial normalized-Elo
+  was discarded in full as `invalid`, not interpreted as an Elo result. At
+  1,690 games it had W/L/D `571/577/542`, pentanomial `[4,166,509,164,2]`,
+  LLR `-0.103480429`, and zero crashes/time losses. Audits of tasks 2 and 3
+  passed, while task 5 correctly failed on `pair-000517` because its match log
+  contained `ValueError: I/O operation on closed file` from variantfishtest's
+  stderr-reader thread after both game results had already been written. The
+  run was atomically retired with reason
+  `harness-stderr-thread-close-race-restart-r2`; active and pending work are
+  both zero, and none of its games can contribute to a gate.
+- The pinned variantfishtest base remains
+  `acecc04a3501f2efbe6b07a87187fd105b37ac3a`. The reproducible harness patch
+  `tools/xfishtest/patches/variantfishtest-stderr-close-race.patch` has SHA-256
+  `9848f1b24a5c67c042982cc6e5d70deb4b981d0bbab525cd9917a3e796765ead`
+  and makes the stderr reader ignore `ValueError` only when that stream is
+  already intentionally closed; unexpected `ValueError` still propagates.
+  Patched `chess/uci.py` SHA-256 is
+  `b09bcb0dc8e34e5bef114c6c668d780bac5b5dd7e67ad6b577b4be76275b3f08`
+  on Windows, `.7`, `.8`, and `.55`. All 31 upstream unit tests pass, a
+  targeted closed/open-stream regression passes, 31 completed two-game match
+  smokes contain zero tracebacks, and 256 actual candidate UCI start/quit
+  cycles report zero thread errors and zero nonzero exits.
+- Clean R2 STC run
+  [`6a79c533e53e34859ff2d9c8`](http://192.168.100.7:6543/tests/view/6a79c533e53e34859ff2d9c8)
+  started only after the harness fix passed. It uses pentanomial normalized-Elo
   `SPRT(0.0, 2.0)`, `alpha=beta=0.05`, bounds `+/-2.944438979`, `10+0.1`,
   Threads `1`, Hash `16`, 200-game chunks, Xfish UHO v1 book SHA-256
   `5ede082489580fb6aeb8c06c3eb34f72a916c5dbb7ee621b350b835dbdc48b0f`,
-  and seed `xfish-uho-3mvs-w65-85-v1-sf-b13-stc-20260810`. Nine pinned
-  workers advertise 150 physical cores: Windows 10, `.7` 32, `.8` 64, and
-  `.55` 44. LTC remains forbidden unless STC reaches the upper boundary and
-  the complete integrity audit is clean.
+  and the independent seed
+  `xfish-uho-3mvs-w65-85-v1-sf-b13-stc-r2-20260810`. Nine pinned workers
+  advertise 150 physical cores: Windows 10, `.7` 32, `.8` 64, and `.55` 44.
+  LTC remains forbidden unless R2 reaches the upper boundary and the complete
+  integrity audit is clean.
 
 ## Per-candidate protocol
 

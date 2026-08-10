@@ -89,11 +89,16 @@ drained. It has no baseline, source, tag, or release effect.
 SF-B13 passed the full pre-Elo gameplay audit on Windows PGO, Ubuntu PGO,
 Xeon-native PGO, and Xeon assertions + UBSan: all four reports contain 644
 cases, zero failures, and exact legal-map, perft, repetition, raw/final NNUE,
-and network-architecture agreement. Its STC run
+and network-architecture agreement. Its first STC attempt
 [`6a79be7308efa0ef6f2f7baa`](http://192.168.100.7:6543/tests/view/6a79be7308efa0ef6f2f7baa)
-uses normalized-Elo `SPRT(0.0, 2.0)` on nine pinned workers / 150 physical
-cores. It cannot affect the baseline unless it reaches the STC upper boundary
-and then independently reaches the LTC `SPRT(0.5, 2.5)` upper boundary.
+was discarded in full as `invalid` after a strict artifact audit exposed a
+benign but unacceptable variantfishtest stderr-close thread race. The harness
+fix passed unit, match, and 256-process teardown stress tests. Clean R2 run
+[`6a79c533e53e34859ff2d9c8`](http://192.168.100.7:6543/tests/view/6a79c533e53e34859ff2d9c8)
+uses a new opening seed and normalized-Elo `SPRT(0.0, 2.0)` on nine pinned
+workers / 150 physical cores. It cannot affect the baseline unless it reaches
+the STC upper boundary and then independently reaches the LTC
+`SPRT(0.5, 2.5)` upper boundary.
 
 ## Deferred queue after the blue pool
 

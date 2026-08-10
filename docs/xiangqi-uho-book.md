@@ -46,6 +46,13 @@ WDL filter.  No existing EPD is an input.
 - Sort the unique candidates by SHA-256 of an immutable seed plus FEN.  Save
   every path, FEN audit, score record, configuration, count, and artifact hash.
   A resumed run is rejected if any generation parameter or input hash differs.
+- Before deployment, run `scripts/audit-xiangqi-uho.py` as an independent
+  second implementation. It streams the final paths, position records,
+  candidates and score records in lockstep; reconstructs the accepted book;
+  enforces exact, unbounded two-PV WDL records with `D=481..519`; and verifies
+  FEN validity, uniqueness, deterministic ordering, counts and every manifest
+  artifact hash. Its current SHA-256 is
+  `df1ffafe3eacf747afa93b8f520c17fd713f794943329345e92358b0944467c0`.
 
 The generator defaults now encode the v2 draw filter and retain hidden legacy
 `--wdl-win-min/--wdl-win-max` flags solely to reproduce v1 in a fresh output

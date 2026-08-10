@@ -250,7 +250,7 @@ disposition:
   both zero, and server work is drained (`active=0`, `pending=0`). SF-B02 does
   not authorize LTC and has no baseline, source, tag, or release effect.
 
-### SF-B03 - simplify the singular-beta PV term (active STC)
+### SF-B03 - simplify the singular-beta PV term (stopped, inconclusive)
 
 - Accepted baseline remains `v0.3.0-nnue-thp` at
   `1699e6ba6df744f83951c66bfd5832647d65e41d`. The isolated source is
@@ -325,6 +325,79 @@ disposition:
   `6646e53cbd9519278080bbf3570df0fa59f55de132fef35f106de722bf285307`,
   `20d33e3b241cfbdd6fa870f54b70d01fbf7851b16425c3d2798617a279f6dc4c`,
   and `0908c956357cecb01214d24349261bd1db3e9bba2dd1ef83d555b706ef9a07a7`.
+- At the owner's request, STC was stopped before either boundary and atomically
+  retired as `inconclusive` with reason
+  `owner-requested-stop-SF-B03-continue-SF-B04`. The owner then reprioritized
+  SF-B13 ahead of SF-B04. Terminal statistics are 3,468 games / 1,734 pairs,
+  W/L/D `1160/1198/1110`, pentanomial `[8,349,1057,313,7]`, and LLR
+  `-0.536779417`; crashes and time losses are zero, and server work is drained
+  (`active=0`, `pending=0`). SF-B03 does not authorize LTC and has no baseline,
+  source, tag, or release effect.
+
+### SF-B13 - restrict the deep-TT LMR bonus to cut nodes (active STC)
+
+- At the owner's request SF-B13 was moved ahead of SF-B04. The accepted
+  baseline remains `v0.3.0-nnue-thp` at
+  `1699e6ba6df744f83951c66bfd5832647d65e41d`. The isolated source is
+  [`16739297861f866a09f3059e8899f5f8189967e3`](https://github.com/FauziAkram/Stockfish/commit/16739297861f866a09f3059e8899f5f8189967e3)
+  from branch `simp205`. It replaces the unconditional deep-TT bonus plus a
+  cut-node coefficient with one `1738` bonus gated by
+  `ttData.depth >= depth && cutNode`.
+- Upstream evidence is mixed and is therefore not treated as proof for Xfish.
+  STC run
+  [`6a4bb672f97ff95f78795e71`](https://tests.stockfishchess.org/tests/view/6a4bb672f97ff95f78795e71)
+  accepted after 112,064 games at LLR `2.929287`, W/L/D
+  `29135/29001/53928`, pentanomial `[261,12994,29400,13104,273]`, with zero
+  crashes and 26 time losses. Its independent LTC run
+  [`6a4f76985529b8472df7ffd9`](https://tests.stockfishchess.org/tests/view/6a4f76985529b8472df7ffd9)
+  rejected after 24,876 games at LLR `-2.938096`, W/L/D
+  `6358/6621/11897`, pentanomial `[12,2787,7103,2524,12]`, with zero crashes
+  and zero time losses. Xfish must still pass both of its stricter gates.
+- The Xfish adaptation preserves the surrounding tuned `2363`, `963`, and
+  `1121` terms and changes only
+  `(ttData.depth >= depth) * (1137 + cutNode * 922)` to
+  `(ttData.depth >= depth && cutNode) * 1738` in `src/search.cpp`. Normalized
+  full-index patch SHA-256 is
+  `cc97258aed9969313d248fe7710bb965525351206557c16a23b7ce5efb697ad8`;
+  the frozen synthetic candidate revision is
+  `bee64d01f95d34b6207f3920a7f9fc6157937089`. Candidate `search.cpp` has git
+  blob `4a0f094aee94909c4484894b748638a564fdf8b6` and SHA-256
+  `c4a0d26aa7b59c51b2d2f93eb78d8912c88da05a6b6befcdb99c6ba1532fa19b`
+  on Windows, `.7`, and `.55`.
+- Native AVX2 Full-LTO PGO builds have bench signature `1939914`. Candidate
+  SHA-256 is
+  `48059ef6e5ee74360e934fce3bce840e239fec479519a640f07e9443d83c0519`
+  for Windows clang-cl 19.1.5,
+  `bd806605fc26a1721180bbbe788ccd929107a9cdf5de24883480889f9d202baf`
+  for Ubuntu `.7/.8` clang 22.1.8, and
+  `19ef1d684bb36bfa3a90ada32c39866253b70b64534859ade3cfe667972767ff`
+  for the independently built `.55` clang 22.1.2 CPU family. The `.55`
+  assertions + libstdc++ debug + UBSan binary has SHA-256
+  `9d8d7e6ec1f82d74d36dd028fc39657be17a3a068a7b3e49a0d80fabb9a8eb2d`.
+- Before Elo, verifier SHA-256
+  `5b3b00019d2266b401ae20c131fe7f7743bae42105ae44226340663194ff4b5e`
+  passed `644/644` cases with zero failures on Windows PGO, Ubuntu `.7` PGO,
+  `.55` native PGO, and `.55` assertions + UBSan. Report SHA-256 values are
+  respectively
+  `ead0384494e7214c30bf7602b6be47259a28b373ffc634605c41029d64492e1f`,
+  `d1831c87982f169794057b83ae413de6722a3532e07bd806b15b4df8ab755f12`,
+  `5d9d5f16c50b0d285e40c00987d6aa50fa54ca8d35a72a83b2a6add13e04c3e2`,
+  and `df64e8c07490c86c20fbed28209341f904c5ffc6166a9ac4907ddb7b8487d130`.
+  All legal maps, depth-3 perft, repetition cases, raw/final NNUE values, and
+  the `62083,1024,32,32,1` network architecture match both v1.0.0 and the
+  accepted baseline. The strength patch changes node records in all 67
+  deterministic depth-7 searches and changes 25 best moves; every move is
+  legal, and the same changes reproduce on all four binaries.
+- STC run
+  [`6a79be7308efa0ef6f2f7baa`](http://192.168.100.7:6543/tests/view/6a79be7308efa0ef6f2f7baa)
+  started only after verification. It uses pentanomial normalized-Elo
+  `SPRT(0.0, 2.0)`, `alpha=beta=0.05`, bounds `+/-2.944438979`, `10+0.1`,
+  Threads `1`, Hash `16`, 200-game chunks, Xfish UHO v1 book SHA-256
+  `5ede082489580fb6aeb8c06c3eb34f72a916c5dbb7ee621b350b835dbdc48b0f`,
+  and seed `xfish-uho-3mvs-w65-85-v1-sf-b13-stc-20260810`. Nine pinned
+  workers advertise 150 physical cores: Windows 10, `.7` 32, `.8` 64, and
+  `.55` 44. LTC remains forbidden unless STC reaches the upper boundary and
+  the complete integrity audit is clean.
 
 ## Per-candidate protocol
 

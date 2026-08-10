@@ -7,8 +7,8 @@ research ledgers. Source-specific documents remain the technical specification
 for each experiment, but their local ordering does not override this file. On
 2026-08-10 the owner moved the reviewed Stockfish blue-Fishtest pool to the
 front of the queue, explicitly skipped SF-B01, stopped the inconclusive full
-Y007 and SF-B02 tests, and continued with SF-B03. The older cross-project
-queue is retained below it.
+Y007, SF-B02, and SF-B03 tests, and then reprioritized SF-B13 ahead of SF-B04.
+The older cross-project queue is retained below it.
 
 ## Promotion contract
 
@@ -51,9 +51,10 @@ queue is retained below it.
 | stopped | `Y007` | Owner-requested stop at an inconclusive STC result; no baseline effect. | `docs/yaneuraou-port-log.md` |
 | skipped | `SF-B01` | Owner-requested stop at an inconclusive STC result; no baseline effect. | `docs/stockfish-blue-tests-2025-2026-plan.md` |
 | stopped | `SF-B02` | Owner-requested stop at an inconclusive STC result; no baseline effect. | `docs/stockfish-blue-tests-2025-2026-plan.md` |
-| active | `SF-B03` | Simplify the singular-beta PV term from `ttPv && !PvNode` to `ttPv`. | `docs/stockfish-blue-tests-2025-2026-plan.md` |
-| B004-B012 | `SF-B04` through `SF-B12` | Remaining Tier-A blue candidates, exactly one at a time in numeric order. | `docs/stockfish-blue-tests-2025-2026-plan.md` |
-| B013-B031 | `SF-B13` through `SF-B31` | Tier-B blue candidates in numeric order; run sibling SF-B31 only if SF-B30 fails. | `docs/stockfish-blue-tests-2025-2026-plan.md` |
+| stopped | `SF-B03` | Owner-requested stop at an inconclusive STC result; no baseline effect. | `docs/stockfish-blue-tests-2025-2026-plan.md` |
+| active | `SF-B13` | Apply the deep-TT LMR bonus only at cut nodes and collapse its coefficient. | `docs/stockfish-blue-tests-2025-2026-plan.md` |
+| B004-B012 | `SF-B04` through `SF-B12` | Deferred by owner while SF-B13 runs; resume exactly one at a time in numeric order. | `docs/stockfish-blue-tests-2025-2026-plan.md` |
+| B014-B031 | `SF-B14` through `SF-B31` | Remaining Tier-B blue candidates in numeric order; run sibling SF-B31 only if SF-B30 fails. | `docs/stockfish-blue-tests-2025-2026-plan.md` |
 | B032-B033 | `SF-B32` through `SF-B33` | Tier-C blue candidates in numeric order. | `docs/stockfish-blue-tests-2025-2026-plan.md` |
 
 Every blue candidate starts from the latest accepted source. Initially that is
@@ -77,16 +78,22 @@ pairs, W/L/D `629/660/571`, pentanomial `[3,172,614,135,6]`, and LLR
 `-0.444776368`; crashes and time losses are zero. It has no baseline, source,
 tag, or release effect.
 
-SF-B03 passed the full pre-Elo gameplay audit on Windows PGO, Ubuntu PGO,
+SF-B03 passed the full pre-Elo gameplay audit and its first three artifact
+audits, but the owner stopped its STC between both boundaries. Run
+[`6a79b32fbbd5154d9e7e405d`](http://192.168.100.7:6543/tests/view/6a79b32fbbd5154d9e7e405d)
+is retired as `inconclusive` at 3,468 games / 1,734 pairs, W/L/D
+`1160/1198/1110`, pentanomial `[8,349,1057,313,7]`, and LLR
+`-0.536779417`; crashes and time losses are zero, and active/pending work is
+drained. It has no baseline, source, tag, or release effect.
+
+SF-B13 passed the full pre-Elo gameplay audit on Windows PGO, Ubuntu PGO,
 Xeon-native PGO, and Xeon assertions + UBSan: all four reports contain 644
 cases, zero failures, and exact legal-map, perft, repetition, raw/final NNUE,
-and network-architecture agreement. Its active STC run is
-[`6a79b32fbbd5154d9e7e405d`](http://192.168.100.7:6543/tests/view/6a79b32fbbd5154d9e7e405d),
-using normalized-Elo `SPRT(0.0, 2.0)` on nine pinned workers / 150 physical
-cores. The first three completed 200-game chunks passed independent artifact
-audits with zero errors. It cannot affect the baseline unless it reaches the
-STC upper boundary and then independently reaches the LTC `SPRT(0.5, 2.5)`
-upper boundary.
+and network-architecture agreement. Its STC run
+[`6a79be7308efa0ef6f2f7baa`](http://192.168.100.7:6543/tests/view/6a79be7308efa0ef6f2f7baa)
+uses normalized-Elo `SPRT(0.0, 2.0)` on nine pinned workers / 150 physical
+cores. It cannot affect the baseline unless it reaches the STC upper boundary
+and then independently reaches the LTC `SPRT(0.5, 2.5)` upper boundary.
 
 ## Deferred queue after the blue pool
 

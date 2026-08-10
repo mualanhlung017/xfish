@@ -11,31 +11,28 @@ tested as isolated xfish candidates. The reference checkout is pinned at
   encoding, or board-layout assumptions.
 - Do not change the NNUE architecture, feature numbering, dimensions, weights,
   or network file.
-- Adapt one separable idea at a time on top of the accepted baseline. Y015
-  advances that baseline from `v0.3.0-nnue-thp` to
-  `v0.4.0-king-square-cache` after both Elo gates passed.
+- Adapt one separable idea at a time on top of the accepted baseline. The
+  owner-grandfathered active baseline is `v0.3.0-nnue-thp`; post-v0.3
+  candidates must earn a new promotion under the SPRT policy below.
 - Verify legal-root maps, depth-3 perft, repetition cases, raw NNUE, static
   evaluation, network architecture, and searched-bestmove legality against
   both `v0.1.0-baseline` and the accepted baseline on Windows and Ubuntu.
-- Effective with Y015 on 2026-08-09, NPS benchmarking is retired for every
-  candidate. After the PGO AVX2 build and full gameplay/NNUE/rule verification,
-  run only a short launch/signature/hash/crash smoke check and proceed directly
-  to Elo Gate 1 with 2,000 paired games. Do not schedule, analyze, or gate on
-  comparative NPS runs; incidental timing printed by a signature smoke or Elo
-  worker calibration is not a candidate benchmark.
-- Run Elo Gate 2 for 10,000 games only when the 2,000-game point estimate is
-  positive and there is no candidate-attributed crash or time loss. Commit,
-  release, tag, and advance the baseline only when the 10,000-game point
-  estimate remains positive. Earlier entries retain the historical NPS and
-  1,000/5,000-game labels they actually ran.
+- NPS benchmarking is retired for every candidate. After the PGO AVX2 build
+  and full gameplay/NNUE/rule verification, run only a short
+  launch/signature/hash/crash smoke check before Elo testing. Incidental timing
+  printed by signature smoke or worker calibration is not a candidate gate.
+- Gate 1 is STC `SPRT(0.0, 2.0)`; only an upper-bound crossing advances to
+  independent-seed LTC `SPRT(0.5, 2.5)`. Both use `alpha=beta=0.05`, paired
+  pentanomial normalized-Elo LLR, and nominal bounds `+/-ln(19)`. Only an LTC
+  upper-bound crossing permits commit, release, tag, or baseline promotion.
+  Fixed-game results below remain historical evidence only.
 
 ## Direct-Elo retest queue for historical NPS rejections
 
-Per the 2026-08-09 policy change, every safe YaneuraOu candidate rejected only
-by comparative NPS is reopened. With Y015 accepted, each entry below is
-rebuilt/checked against `v0.4.0-king-square-cache` and tested alone for 2,000
-paired games; a positive point estimate with no candidate failure opens the
-independent-seed 10,000-game gate.
+Every safe YaneuraOu candidate rejected only by comparative NPS is reopened.
+Y015 is first being re-qualified against `v0.3.0-nnue-thp`; after it reaches a
+terminal SPRT decision, each entry below is isolated against the then-valid
+baseline and follows the same STC-to-LTC sequence.
 
 1. `Y004` - corrected precomputed checker update fast path (next candidate).
 2. `Y007-R1` - destination-only split-half bitboard iteration.
@@ -846,11 +843,29 @@ point estimate. Already-present/audit-only ideas are likewise not candidates.
   `e36be59a616c7e3040bd93314f41ea513e3c7405a228cb1f358d2257c667900b`;
   the 20,108-entry artifact manifest SHA-256 is
   `787a40912472d070dbcb2f108651711a2462f70abe0bfe535fe62e848d46df40`.
-- The required 10,000-game point estimate is positive, so Y015 is accepted and
-  promoted as baseline `v0.4.0-king-square-cache`. It changes only how the two
+- Under the historical fixed-game policy, the positive 10,000-game point
+  estimate promoted Y015 as `v0.4.0-king-square-cache`. It changes only how the two
   existing king-square values are recovered; Xiangqi rules, legal moves, search
   policy, NNUE architecture/features/weights, and evaluation outputs are
-  unchanged. Y004 is the next isolated direct-Elo retest.
+  unchanged.
+- On 2026-08-10 the owner replaced that policy with mandatory STC and LTC
+  SPRT. v0.3.0 remains grandfathered, while the historical Y015 promotion is
+  revoked until both new stages pass. The first requalification run
+  `6a79134e100ca3033dd24db4` was stopped and disqualified at 8,228 games after
+  an audit found that the variant-fishtest server was calculating legacy
+  trinomial BayesElo LLR. It had W/L/D `902/890/6436`, zero failures, and no
+  baseline effect.
+- The harness now sends and validates pentanomial task statistics and computes
+  normalized-Elo LLR with `LLRcalc.py` pinned to official Stockfish fishtest
+  commit `b571c90db880f973a7eea57bd344600fe89a7e8e`. End-to-end smoke run
+  `6a7922f9d4f4fd50e97a2ce2` proved the server receives the pair vector and the
+  watcher records a safety cap reached between the boundaries as
+  `inconclusive`.
+- Valid Y015 STC requalification restarted from zero as run
+  `6a7923f7fc55491a56830ef8`, seed
+  `xfish-xiangqi-20260810-y015-v030-stc-pentanomial-v2`, on nine workers and
+  150 physical cores (Windows 10, `.7` 32, `.8` 64, `.55` 44). Y004 remains
+  next and cannot start until Y015 reaches a terminal decision.
 
 ## Additional core-speed audit after Y007
 

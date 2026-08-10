@@ -20,5 +20,16 @@ services:
       - ./secrets/fishtest.secret:/root/fishtest.secret:ro
       - ./secrets:/run/xfishtest:ro
 
+  sprt-watcher:
+    build:
+      context: ./server
+    command: ["python", "/opt/xfishtest/admin.py", "watch-sprt", "--poll-seconds", "2"]
+    restart: unless-stopped
+    depends_on:
+      - mongodb
+    environment:
+      FISHTEST_HOST: mongodb
+      PYTHONUNBUFFERED: "1"
+
 volumes:
   mongodb-data:

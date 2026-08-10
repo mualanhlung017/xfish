@@ -497,12 +497,30 @@ class Worker:
         task_games = int(task["num_games"])
         if task_games % 2:
             raise ValueError("task game count is not pair-aligned")
-        old_stats = task.get("stats", {"wins": 0, "losses": 0, "draws": 0, "crashes": 0, "time_losses": 0})
+        old_stats = task.get(
+            "stats",
+            {
+                "wins": 0,
+                "losses": 0,
+                "draws": 0,
+                "crashes": 0,
+                "time_losses": 0,
+                "pentanomial": [0, 0, 0, 0, 0],
+            },
+        )
         for key in ("wins", "losses", "draws", "crashes", "time_losses"):
             old_stats.setdefault(key, 0)
         old_games = old_stats["wins"] + old_stats["losses"] + old_stats["draws"]
         if old_games % 2 or old_games > task_games:
             raise ValueError("server task progress is not pair-aligned")
+        if "pentanomial" not in old_stats:
+            if old_games and "xfish_sprt" in run.get("args", {}):
+                raise ValueError("SPRT task progress is missing pentanomial statistics")
+            old_stats["pentanomial"] = [0, 0, 0, 0, 0]
+        if len(old_stats["pentanomial"]) != 5:
+            raise ValueError("server task has an invalid pentanomial vector")
+        if 2 * sum(old_stats["pentanomial"]) != old_games:
+            raise ValueError("server W/L/D and pentanomial progress disagree")
         old_pairs = old_games // 2
         total_pairs = task_games // 2
         opening_offset = sum(int(item["num_games"]) // 2 for item in run["tasks"][:task_id])
@@ -543,6 +561,7 @@ class Worker:
         )
 
         aggregate = dict(old_stats)
+        aggregate["pentanomial"] = list(old_stats["pentanomial"])
         completed = {}
         next_local = old_pairs
         task_root = self.result_root / run_id / ("task-%03d" % task_id)
@@ -596,10 +615,14 @@ class Worker:
                         aggregate["losses"] += item["scores"][1]
                         aggregate["draws"] += item["scores"][2]
                         aggregate["time_losses"] += sum(item.get("time_losses", []))
+                        for index, value in enumerate(item["pentanomial"]):
+                            aggregate["pentanomial"][index] += value
                         next_local += 1
                         changed = True
                     if changed:
                         games = aggregate["wins"] + aggregate["losses"] + aggregate["draws"]
+                        if 2 * sum(aggregate["pentanomial"]) != games:
+                            raise RuntimeError("W/L/D and pentanomial aggregate disagree")
                         result = self.update_task(run_id, task_id, aggregate, nps)
                         atomic_json(
                             task_root / "aggregate.json",

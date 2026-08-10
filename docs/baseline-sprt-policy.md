@@ -27,6 +27,12 @@ Initial Xiangqi controls are STC `10+0.1` and LTC `60+0.6`, with
 `Threads=1`, `Hash=16`, color-reversed opening pairs, PGO AVX2 platform-native
 binaries, and the same NNUE on both sides.
 
+The LLR statistic is the paired pentanomial normalized-Elo calculation from
+the pinned official Stockfish fishtest implementation. For every update,
+`games == 2 * sum(pentanomial)` is mandatory. Trinomial-only LLR, including
+results produced by the legacy variant-fishtest SPRT implementation, is not a
+valid gate result.
+
 ## Retrospective baseline audit
 
 `v0.3.0-nnue-thp` is the owner-approved grandfathered baseline. The new SPRT

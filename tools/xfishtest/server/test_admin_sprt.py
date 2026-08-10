@@ -28,17 +28,94 @@ def args(stage, parent_run_id=None):
     )
 
 
+def results(wins, losses, draws, pentanomial):
+    return {
+        "wins": wins,
+        "losses": losses,
+        "draws": draws,
+        "crashes": 0,
+        "time_losses": 0,
+        "pentanomial": pentanomial,
+        "missing_pentanomial_games": 0,
+    }
+
+
 class SprtPolicyTests(unittest.TestCase):
     def test_stc_parameters_and_bounds(self):
         config = admin.sprt_for_run(args("stc"), FakeRunDb())
         self.assertEqual(config["stage"], "stc")
         self.assertEqual((config["elo0"], config["elo1"]), (0.0, 2.0))
         self.assertEqual((config["alpha"], config["beta"]), (0.05, 0.05))
+        self.assertEqual(config["elo_model"], "normalized")
+        self.assertEqual(config["statistic"], "pentanomial")
 
-        run = {"args": {"sprt": config}}
-        status = admin.sprt_status(run, {"wins": 1, "losses": 1, "draws": 10})
+        run = {"args": {admin.SPRT_KEY: config}}
+        status = admin.sprt_status(run, results(0, 0, 2, [0, 0, 1, 0, 0]))
         self.assertAlmostEqual(status["upper_bound"], math.log(19), places=12)
         self.assertAlmostEqual(status["lower_bound"], -math.log(19), places=12)
+        self.assertEqual(status["pairs"], 1)
+
+    def test_pentanomial_is_required_for_played_games(self):
+        config = admin.sprt_for_run(args("stc"), FakeRunDb())
+        run = {"args": {admin.SPRT_KEY: config}}
+        bad = results(1, 1, 0, [0, 0, 0, 0, 0])
+        bad["missing_pentanomial_games"] = 2
+        with self.assertRaisesRegex(ValueError, "incomplete"):
+            admin.sprt_status(run, bad)
+
+    def test_llr_matches_pinned_official_fishtest_reference(self):
+        config = admin.sprt_for_run(args("stc"), FakeRunDb())
+        run = {"args": {admin.SPRT_KEY: config}}
+        status = admin.sprt_status(
+            run,
+            results(20, 16, 164, [0, 8, 80, 12, 0]),
+        )
+        self.assertAlmostEqual(status["llr"], 0.069511760895660, places=14)
+
+    def test_both_llr_boundaries_are_detected(self):
+        config = admin.sprt_for_run(args("stc"), FakeRunDb())
+        run = {"args": {admin.SPRT_KEY: config}}
+        accepted = admin.sprt_status(
+            run,
+            results(2000, 0, 0, [0, 0, 0, 0, 1000]),
+        )
+        rejected = admin.sprt_status(
+            run,
+            results(0, 2000, 0, [1000, 0, 0, 0, 0]),
+        )
+        self.assertEqual(accepted["state"], "accepted")
+        self.assertGreaterEqual(accepted["llr"], accepted["upper_bound"])
+        self.assertEqual(rejected["state"], "rejected")
+        self.assertLessEqual(rejected["llr"], rejected["lower_bound"])
+
+    def test_aggregate_results_keeps_pair_frequencies(self):
+        run = {
+            "tasks": [
+                {
+                    "stats": {
+                        "wins": 1,
+                        "losses": 0,
+                        "draws": 1,
+                        "crashes": 0,
+                        "time_losses": 0,
+                        "pentanomial": [0, 0, 0, 1, 0],
+                    }
+                },
+                {
+                    "stats": {
+                        "wins": 0,
+                        "losses": 0,
+                        "draws": 2,
+                        "crashes": 0,
+                        "time_losses": 0,
+                        "pentanomial": [0, 0, 1, 0, 0],
+                    }
+                },
+            ]
+        }
+        aggregate = admin.aggregate_results(run)
+        self.assertEqual(aggregate["pentanomial"], [0, 0, 1, 1, 0])
+        self.assertEqual(aggregate["missing_pentanomial_games"], 0)
 
     def test_ltc_requires_parent(self):
         with self.assertRaisesRegex(ValueError, "parent-run-id"):
@@ -50,7 +127,7 @@ class SprtPolicyTests(unittest.TestCase):
             "args": {
                 "resolved_base": BASE_SHA,
                 "resolved_new": NEW_SHA,
-                "sprt": {
+                admin.SPRT_KEY: {
                     "stage": "stc",
                     "elo0": 0.0,
                     "elo1": 2.0,
@@ -67,7 +144,7 @@ class SprtPolicyTests(unittest.TestCase):
             "args": {
                 "resolved_base": BASE_SHA,
                 "resolved_new": NEW_SHA,
-                "sprt": {
+                admin.SPRT_KEY: {
                     "stage": "stc",
                     "elo0": 0.0,
                     "elo1": 2.0,

@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 import argparse
+import importlib.util
 import json
 import math
 from pathlib import Path
+import time
 
 from bson.objectid import ObjectId
 from fishtest import stat_util
@@ -11,11 +13,28 @@ from fishtest.rundb import RunDb
 
 SPRT_ALPHA = 0.05
 SPRT_BETA = 0.05
-SPRT_DRAWELO = 240.0
+SPRT_KEY = "xfish_sprt"
+SPRT_ELO_MODEL = "normalized"
+OFFICIAL_FISHTEST_COMMIT = "b571c90db880f973a7eea57bd344600fe89a7e8e"
+OFFICIAL_LLR_PATH = Path(
+    "/opt/fishtest-official/server/fishtest/stats/LLRcalc.py"
+)
 SPRT_STAGES = {
     "stc": {"elo0": 0.0, "elo1": 2.0, "tc": "10+0.1"},
     "ltc": {"elo0": 0.5, "elo1": 2.5, "tc": "60+0.6"},
 }
+
+
+def load_official_llrcalc(path=OFFICIAL_LLR_PATH):
+    spec = importlib.util.spec_from_file_location("xfish_official_llrcalc", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("could not load official fishtest LLR calculator")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+OFFICIAL_LLRCALC = load_official_llrcalc()
 
 
 def positive_int(value):
@@ -24,6 +43,16 @@ def positive_int(value):
     except ValueError as error:
         raise argparse.ArgumentTypeError("must be an integer") from error
     if parsed < 1:
+        raise argparse.ArgumentTypeError("must be positive")
+    return parsed
+
+
+def positive_float(value):
+    try:
+        parsed = float(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("must be a number") from error
+    if parsed <= 0:
         raise argparse.ArgumentTypeError("must be positive")
     return parsed
 
@@ -48,7 +77,10 @@ def sprt_for_run(args, rundb):
         "elo1": stage["elo1"],
         "alpha": SPRT_ALPHA,
         "beta": SPRT_BETA,
-        "drawelo": SPRT_DRAWELO,
+        "elo_model": SPRT_ELO_MODEL,
+        "statistic": "pentanomial",
+        "official_fishtest_commit": OFFICIAL_FISHTEST_COMMIT,
+        "state": "",
     }
 
     if args.sprt_stage == "stc":
@@ -65,7 +97,7 @@ def sprt_for_run(args, rundb):
     if parent is None:
         raise ValueError("parent STC run was not found")
     parent_args = parent.get("args", {})
-    parent_sprt = parent_args.get("sprt", {})
+    parent_sprt = parent_args.get(SPRT_KEY, parent_args.get("sprt", {}))
     parent_is_stc = (
         parent_sprt.get("stage") == "stc"
         or (
@@ -84,8 +116,78 @@ def sprt_for_run(args, rundb):
     return sprt
 
 
+def aggregate_results(run):
+    results = {
+        "wins": 0,
+        "losses": 0,
+        "draws": 0,
+        "crashes": 0,
+        "time_losses": 0,
+        "pentanomial": [0, 0, 0, 0, 0],
+        "missing_pentanomial_games": 0,
+    }
+    for task in run.get("tasks", []):
+        stats = task.get("stats", {})
+        games = sum(int(stats.get(key, 0)) for key in ("wins", "losses", "draws"))
+        for key in ("wins", "losses", "draws", "crashes", "time_losses"):
+            results[key] += int(stats.get(key, 0))
+        penta = stats.get("pentanomial")
+        if penta is None:
+            results["missing_pentanomial_games"] += games
+            continue
+        if len(penta) != 5 or any(int(value) < 0 for value in penta):
+            raise ValueError("task has an invalid pentanomial vector")
+        for index, value in enumerate(penta):
+            results["pentanomial"][index] += int(value)
+    return results
+
+
 def sprt_status(run, results):
-    sprt = run.get("args", {}).get("sprt")
+    run_args = run.get("args", {})
+    sprt = run_args.get(SPRT_KEY)
+    if sprt is not None:
+        games = results["wins"] + results["losses"] + results["draws"]
+        pairs = sum(results["pentanomial"])
+        if results["missing_pentanomial_games"] or games != 2 * pairs:
+            raise ValueError(
+                "paired SPRT statistics are incomplete: games=%d pairs=%d missing=%d"
+                % (games, pairs, results["missing_pentanomial_games"])
+            )
+        llr = (
+            0.0
+            if pairs == 0
+            else OFFICIAL_LLRCALC.LLR_normalized(
+                sprt["elo0"], sprt["elo1"], results["pentanomial"]
+            )
+        )
+        lower_bound = math.log(sprt["beta"] / (1 - sprt["alpha"]))
+        upper_bound = math.log((1 - sprt["beta"]) / sprt["alpha"])
+        state = sprt.get("state", "")
+        if not state and llr <= lower_bound:
+            state = "rejected"
+        elif not state and llr >= upper_bound:
+            state = "accepted"
+        return {
+            "finished": bool(state),
+            "state": state,
+            "llr": llr,
+            "lower_bound": lower_bound,
+            "upper_bound": upper_bound,
+            "stage": sprt.get("stage"),
+            "elo0": sprt["elo0"],
+            "elo1": sprt["elo1"],
+            "alpha": sprt["alpha"],
+            "beta": sprt["beta"],
+            "elo_model": sprt["elo_model"],
+            "statistic": sprt["statistic"],
+            "pairs": pairs,
+            "parent_run_id": sprt.get("parent_run_id"),
+            "official_fishtest_commit": sprt["official_fishtest_commit"],
+        }
+
+    # Preserve read-only status support for historical runs created with the
+    # variant-fishtest server's legacy trinomial BayesElo implementation.
+    sprt = run_args.get("sprt")
     if sprt is None:
         return None
     current = stat_util.SPRT(
@@ -104,6 +206,8 @@ def sprt_status(run, results):
             "alpha": sprt["alpha"],
             "beta": sprt["beta"],
             "parent_run_id": sprt.get("parent_run_id"),
+            "elo_model": "BayesElo",
+            "statistic": "trinomial-legacy",
         }
     )
     return current
@@ -183,15 +287,76 @@ def create_run(args):
         base_signature=args.base_signature,
         new_signature=args.new_signature,
         regression_test=True,
-        sprt=sprt,
+        # The pinned Xiangqi server only implements legacy trinomial SPRT.
+        # Keep its built-in stopper disabled and let the xfish watcher below
+        # evaluate official Stockfish-style pentanomial normalized-Elo LLR.
+        sprt=None,
         username=args.username,
         tests_repo=args.tests_repo,
         auto_purge=False,
         throughput=1000,
         priority=0,
     )
+    if sprt is not None:
+        rundb.runs.update_one(
+            {"_id": run_id},
+            {"$set": {"args.%s" % SPRT_KEY: sprt}},
+        )
     rundb.approve_run(run_id, args.username)
     print(json.dumps({"run_id": str(run_id), "existing": False}))
+
+
+def evaluate_and_stop(rundb, run):
+    results = aggregate_results(run)
+    current_sprt = sprt_status(run, results)
+    config = run.get("args", {}).get(SPRT_KEY)
+    if config is None or config.get("state"):
+        return results, current_sprt, False
+
+    games = results["wins"] + results["losses"] + results["draws"]
+    state = current_sprt["state"]
+    stop_reason = "llr_boundary"
+    if not state and games >= int(run.get("args", {}).get("num_games", 0)):
+        state = "inconclusive"
+        stop_reason = "safety_cap"
+    if not state:
+        return results, current_sprt, False
+
+    # Re-read immediately before committing the decision so a concurrent
+    # worker update cannot be overwritten by a stale full Mongo document.
+    fresh = rundb.get_run(run["_id"])
+    results = aggregate_results(fresh)
+    current_sprt = sprt_status(fresh, results)
+    games = results["wins"] + results["losses"] + results["draws"]
+    state = current_sprt["state"]
+    stop_reason = "llr_boundary"
+    if not state and games >= int(fresh.get("args", {}).get("num_games", 0)):
+        state = "inconclusive"
+        stop_reason = "safety_cap"
+    if not state:
+        return results, current_sprt, False
+
+    prefix = "args.%s" % SPRT_KEY
+    decision = rundb.runs.update_one(
+        {"_id": fresh["_id"], "%s.state" % prefix: ""},
+        {
+            "$set": {
+                "%s.state" % prefix: state,
+                "%s.llr" % prefix: current_sprt["llr"],
+                "%s.stop_reason" % prefix: stop_reason,
+                "%s.finished_games" % prefix: games,
+                "%s.finished_pairs" % prefix: sum(results["pentanomial"]),
+                "tasks.$[].active": False,
+                "tasks.$[].pending": False,
+                "finished": True,
+            }
+        },
+    )
+    if not decision.modified_count:
+        return results, sprt_status(rundb.get_run(fresh["_id"]), results), False
+    current_sprt["state"] = state
+    current_sprt["finished"] = True
+    return results, current_sprt, True
 
 
 def status(args):
@@ -199,8 +364,8 @@ def status(args):
     run = rundb.get_run(ObjectId(args.run_id))
     if run is None:
         raise ValueError("run not found")
-    results = rundb.get_results(run)
-    current_sprt = sprt_status(run, results)
+    results, current_sprt, _ = evaluate_and_stop(rundb, run)
+    run = rundb.get_run(ObjectId(args.run_id))
     tasks = []
     for index, task in enumerate(run["tasks"]):
         tasks.append(
@@ -234,8 +399,7 @@ def list_runs(args):
     cursor = rundb.runs.find(query).sort([("_id", -1)]).limit(args.limit)
     runs = []
     for run in cursor:
-        results = rundb.get_results(run)
-        current_sprt = sprt_status(run, results)
+        results, current_sprt, _ = evaluate_and_stop(rundb, run)
         completed_games = sum(
             sum(int(task.get("stats", {}).get(key, 0)) for key in ("wins", "losses", "draws"))
             for task in run.get("tasks", [])
@@ -254,6 +418,47 @@ def list_runs(args):
             }
         )
     print(json.dumps({"runs": runs}, sort_keys=True))
+
+
+def watch_sprt(args):
+    rundb = RunDb()
+    while True:
+        query = {"finished": {"$ne": True}, "args.%s" % SPRT_KEY: {"$exists": True}}
+        for run in list(rundb.runs.find(query)):
+            try:
+                results, current, stopped = evaluate_and_stop(rundb, run)
+                if stopped:
+                    print(
+                        json.dumps(
+                            {
+                                "event": "sprt_stopped",
+                                "run_id": str(run["_id"]),
+                                "games": results["wins"]
+                                + results["losses"]
+                                + results["draws"],
+                                "pentanomial": results["pentanomial"],
+                                "llr": current["llr"],
+                                "state": current["state"],
+                            },
+                            sort_keys=True,
+                        ),
+                        flush=True,
+                    )
+            except Exception as error:
+                print(
+                    json.dumps(
+                        {
+                            "event": "sprt_watch_error",
+                            "run_id": str(run.get("_id", "")),
+                            "error": str(error),
+                        },
+                        sort_keys=True,
+                    ),
+                    flush=True,
+                )
+        if args.once:
+            return
+        time.sleep(args.poll_seconds)
 
 
 def stop_run(args):
@@ -311,6 +516,11 @@ def parser():
     listing.add_argument("--all", action="store_true")
     listing.add_argument("--limit", type=positive_int, default=20)
     listing.set_defaults(func=list_runs)
+
+    watcher = commands.add_parser("watch-sprt")
+    watcher.add_argument("--poll-seconds", type=positive_float, default=2.0)
+    watcher.add_argument("--once", action="store_true")
+    watcher.set_defaults(func=watch_sprt)
 
     stop = commands.add_parser("stop-run")
     stop.add_argument("run_id")

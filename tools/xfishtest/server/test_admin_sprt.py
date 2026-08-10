@@ -63,6 +63,12 @@ class SprtPolicyTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "incomplete"):
             admin.sprt_status(run, bad)
 
+    def test_wld_score_must_match_pentanomial_score(self):
+        config = admin.sprt_for_run(args("stc"), FakeRunDb())
+        run = {"args": {admin.SPRT_KEY: config}}
+        with self.assertRaisesRegex(ValueError, "scores disagree"):
+            admin.sprt_status(run, results(2, 0, 0, [1, 0, 0, 0, 0]))
+
     def test_llr_matches_pinned_official_fishtest_reference(self):
         config = admin.sprt_for_run(args("stc"), FakeRunDb())
         run = {"args": {admin.SPRT_KEY: config}}
@@ -87,6 +93,16 @@ class SprtPolicyTests(unittest.TestCase):
         self.assertGreaterEqual(accepted["llr"], accepted["upper_bound"])
         self.assertEqual(rejected["state"], "rejected")
         self.assertLessEqual(rejected["llr"], rejected["lower_bound"])
+
+    def test_runtime_failure_invalidates_a_gate(self):
+        run = {"args": {"num_games": 100000}}
+        current = {"state": "", "llr": 0.0}
+        failed = results(0, 0, 0, [0, 0, 0, 0, 0])
+        failed["crashes"] = 1
+        self.assertEqual(
+            admin.terminal_decision(run, failed, current),
+            ("invalid", "runtime_error"),
+        )
 
     def test_aggregate_results_keeps_pair_frequencies(self):
         run = {

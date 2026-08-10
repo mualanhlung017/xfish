@@ -107,6 +107,9 @@ def sprt_for_run(args, rundb):
     )
     if not parent_is_stc or parent_sprt.get("state") != "accepted":
         raise ValueError("parent run has not passed STC SPRT(0.0, 2.0)")
+    parent_results = aggregate_results(parent)
+    if parent_results["crashes"] or parent_results["time_losses"]:
+        raise ValueError("parent STC run contains a crash or time loss")
     if parent_args.get("resolved_base") != args.base_sha:
         raise ValueError("LTC baseline SHA does not match its parent STC run")
     if parent_args.get("resolved_new") != args.new_sha:
@@ -152,6 +155,15 @@ def sprt_status(run, results):
             raise ValueError(
                 "paired SPRT statistics are incomplete: games=%d pairs=%d missing=%d"
                 % (games, pairs, results["missing_pentanomial_games"])
+            )
+        game_score_twice = 2 * results["wins"] + results["draws"]
+        pair_score_twice = sum(
+            index * count for index, count in enumerate(results["pentanomial"])
+        )
+        if game_score_twice != pair_score_twice:
+            raise ValueError(
+                "W/L/D and pentanomial scores disagree: games=%d pairs=%d"
+                % (game_score_twice, pair_score_twice)
             )
         llr = (
             0.0
@@ -306,6 +318,17 @@ def create_run(args):
     print(json.dumps({"run_id": str(run_id), "existing": False}))
 
 
+def terminal_decision(run, results, current_sprt):
+    if results["crashes"] or results["time_losses"]:
+        return "invalid", "runtime_error"
+    if current_sprt["state"]:
+        return current_sprt["state"], "llr_boundary"
+    games = results["wins"] + results["losses"] + results["draws"]
+    if games >= int(run.get("args", {}).get("num_games", 0)):
+        return "inconclusive", "safety_cap"
+    return "", ""
+
+
 def evaluate_and_stop(rundb, run):
     results = aggregate_results(run)
     current_sprt = sprt_status(run, results)
@@ -314,11 +337,7 @@ def evaluate_and_stop(rundb, run):
         return results, current_sprt, False
 
     games = results["wins"] + results["losses"] + results["draws"]
-    state = current_sprt["state"]
-    stop_reason = "llr_boundary"
-    if not state and games >= int(run.get("args", {}).get("num_games", 0)):
-        state = "inconclusive"
-        stop_reason = "safety_cap"
+    state, stop_reason = terminal_decision(run, results, current_sprt)
     if not state:
         return results, current_sprt, False
 
@@ -328,11 +347,7 @@ def evaluate_and_stop(rundb, run):
     results = aggregate_results(fresh)
     current_sprt = sprt_status(fresh, results)
     games = results["wins"] + results["losses"] + results["draws"]
-    state = current_sprt["state"]
-    stop_reason = "llr_boundary"
-    if not state and games >= int(fresh.get("args", {}).get("num_games", 0)):
-        state = "inconclusive"
-        stop_reason = "safety_cap"
+    state, stop_reason = terminal_decision(fresh, results, current_sprt)
     if not state:
         return results, current_sprt, False
 

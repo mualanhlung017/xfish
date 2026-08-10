@@ -402,7 +402,7 @@ disposition:
 - The pinned variantfishtest base remains
   `acecc04a3501f2efbe6b07a87187fd105b37ac3a`. The reproducible harness patch
   `tools/xfishtest/patches/variantfishtest-stderr-close-race.patch` has SHA-256
-  `9848f1b24a5c67c042982cc6e5d70deb4b981d0bbab525cd9917a3e796765ead`
+  `c24d724df238e976cdc738f21661f9d68cad243bd606cdf634f060db971367e5`
   and makes the stderr reader ignore `ValueError` only when that stream is
   already intentionally closed; unexpected `ValueError` still propagates.
   Patched `chess/uci.py` SHA-256 is

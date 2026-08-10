@@ -2,7 +2,7 @@ diff --git a/chess/uci.py b/chess/uci.py
 index 8ce1112..7233a4a 100644
 --- a/chess/uci.py
 +++ b/chess/uci.py
-@@ -718,7 +718,16 @@ class PopenProcess(object):
+@@ -718,6 +718,15 @@ class PopenProcess(object):
      def _stderr_thread_target(self):
          """Process stderr lines and filter duplicates through the global deduplicator."""
          while self.is_alive():
@@ -19,4 +19,3 @@ index 8ce1112..7233a4a 100644
 +                raise
              if not line:
                  continue
-             

@@ -48,6 +48,9 @@ class SprtPolicyTests(unittest.TestCase):
         self.assertEqual((config["alpha"], config["beta"]), (0.05, 0.05))
         self.assertEqual(config["elo_model"], "normalized")
         self.assertEqual(config["statistic"], "pentanomial")
+        self.assertAlmostEqual(config["upper_bound"], math.log(19), places=12)
+        self.assertAlmostEqual(config["lower_bound"], -math.log(19), places=12)
+        self.assertEqual(config["current_pentanomial"], [0, 0, 0, 0, 0])
 
         run = {"args": {admin.SPRT_KEY: config}}
         status = admin.sprt_status(run, results(0, 0, 2, [0, 0, 1, 0, 0]))
@@ -103,6 +106,42 @@ class SprtPolicyTests(unittest.TestCase):
             admin.terminal_decision(run, failed, current),
             ("invalid", "runtime_error"),
         )
+
+    def test_terminal_results_info_is_complete_for_finished_list(self):
+        aggregate = results(20, 16, 164, [0, 8, 80, 12, 0])
+        current = {
+            "stage": "stc",
+            "state": "",
+            "llr": math.log(19),
+            "lower_bound": -math.log(19),
+            "upper_bound": math.log(19),
+            "elo0": 0.0,
+            "elo1": 2.0,
+        }
+        info = admin.results_info_for_sprt(aggregate, current, state="accepted")
+        self.assertEqual(info["style"], "#44EB44")
+        self.assertEqual(info["llr"], math.log(19))
+        self.assertIn("STC accepted", info["info"][0])
+        self.assertIn("0, 8, 80, 12, 0", info["info"][1])
+        self.assertIn("Total: 200 W: 20 L: 16 D: 164", info["info"][2])
+
+    def test_inconclusive_results_info_is_yellow(self):
+        current = {
+            "stage": "ltc",
+            "state": "",
+            "llr": 0.0,
+            "lower_bound": -math.log(19),
+            "upper_bound": math.log(19),
+            "elo0": 0.5,
+            "elo1": 2.5,
+        }
+        info = admin.results_info_for_sprt(
+            results(0, 0, 0, [0, 0, 0, 0, 0]),
+            current,
+            state="inconclusive",
+        )
+        self.assertEqual(info["style"], "yellow")
+        self.assertIn("LTC inconclusive", info["info"][0])
 
     def test_aggregate_results_keeps_pair_frequencies(self):
         run = {

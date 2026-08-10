@@ -80,6 +80,11 @@ def sprt_for_run(args, rundb):
         "elo_model": SPRT_ELO_MODEL,
         "statistic": "pentanomial",
         "official_fishtest_commit": OFFICIAL_FISHTEST_COMMIT,
+        "llr": 0.0,
+        "lower_bound": math.log(SPRT_BETA / (1 - SPRT_ALPHA)),
+        "upper_bound": math.log((1 - SPRT_BETA) / SPRT_ALPHA),
+        "current_games": 0,
+        "current_pentanomial": [0, 0, 0, 0, 0],
         "state": "",
     }
 
@@ -329,6 +334,43 @@ def terminal_decision(run, results, current_sprt):
     return "", ""
 
 
+def results_info_for_sprt(results, current_sprt, state=None):
+    effective_state = state if state is not None else current_sprt.get("state", "")
+    stage = str(current_sprt.get("stage") or "sprt").upper()
+    label = effective_state or "running"
+    info = {
+        "style": "",
+        "llr": current_sprt["llr"],
+        "info": [
+            "%s %s: LLR %.3f (%.3f, %.3f) [%.2f, %.2f]"
+            % (
+                stage,
+                label,
+                current_sprt["llr"],
+                current_sprt["lower_bound"],
+                current_sprt["upper_bound"],
+                current_sprt["elo0"],
+                current_sprt["elo1"],
+            ),
+            "Ptnml(0-2): " + ", ".join(str(value) for value in results["pentanomial"]),
+            "Total: %d W: %d L: %d D: %d"
+            % (
+                results["wins"] + results["losses"] + results["draws"],
+                results["wins"],
+                results["losses"],
+                results["draws"],
+            ),
+        ],
+    }
+    if effective_state == "accepted":
+        info["style"] = "#44EB44"
+    elif effective_state in ("rejected", "invalid"):
+        info["style"] = "#FF6A6A"
+    elif effective_state == "inconclusive":
+        info["style"] = "yellow"
+    return info
+
+
 def evaluate_and_stop(rundb, run):
     results = aggregate_results(run)
     current_sprt = sprt_status(run, results)
@@ -339,6 +381,19 @@ def evaluate_and_stop(rundb, run):
     games = results["wins"] + results["losses"] + results["draws"]
     state, stop_reason = terminal_decision(run, results, current_sprt)
     if not state:
+        prefix = "args.%s" % SPRT_KEY
+        rundb.runs.update_one(
+            {"_id": run["_id"], "%s.state" % prefix: ""},
+            {
+                "$set": {
+                    "%s.llr" % prefix: current_sprt["llr"],
+                    "%s.lower_bound" % prefix: current_sprt["lower_bound"],
+                    "%s.upper_bound" % prefix: current_sprt["upper_bound"],
+                    "%s.current_games" % prefix: games,
+                    "%s.current_pentanomial" % prefix: results["pentanomial"],
+                }
+            },
+        )
         return results, current_sprt, False
 
     # Re-read immediately before committing the decision so a concurrent
@@ -361,6 +416,13 @@ def evaluate_and_stop(rundb, run):
                 "%s.stop_reason" % prefix: stop_reason,
                 "%s.finished_games" % prefix: games,
                 "%s.finished_pairs" % prefix: sum(results["pentanomial"]),
+                "%s.current_games" % prefix: games,
+                "%s.current_pentanomial" % prefix: results["pentanomial"],
+                "%s.lower_bound" % prefix: current_sprt["lower_bound"],
+                "%s.upper_bound" % prefix: current_sprt["upper_bound"],
+                "results_info": results_info_for_sprt(
+                    results, current_sprt, state=state
+                ),
                 "tasks.$[].active": False,
                 "tasks.$[].pending": False,
                 "finished": True,

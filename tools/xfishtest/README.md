@@ -51,7 +51,10 @@ while sequential-test likelihoods are calculated with `LLRcalc.py` from
   STC uses 200-game tasks and LTC uses 40-game tasks unless explicitly
   overridden. `sprt-watcher` evaluates the paired LLR every two seconds and
   stops the run at either boundary; reaching the safety cap between the
-  boundaries records `inconclusive`.
+  boundaries records `inconclusive`. It also persists the current LLR and
+  pentanomial for the web dashboard and writes a complete `results_info`
+  record atomically with every terminal decision, so finished custom SPRT runs
+  remain renderable by the pinned variant-fishtest server.
 
 The upstream runner expects a `UCI_Variant` option.  Pikafish is Xiangqi-only
 and intentionally does not expose that option, so `worker/xiangqi_match.py`

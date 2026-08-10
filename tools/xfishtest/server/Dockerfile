@@ -21,6 +21,8 @@ RUN python -m pip install --no-cache-dir -r /opt/xfishtest/requirements.txt \
 
 COPY production.ini /opt/fishtest-src/server/production.local.ini
 COPY userdb.py /opt/fishtest-src/server/fishtest/userdb.py
+COPY patch_variant_views.py /opt/xfishtest/patch_variant_views.py
+RUN python /opt/xfishtest/patch_variant_views.py
 COPY admin.py /opt/xfishtest/admin.py
 COPY test_admin_sprt.py /opt/xfishtest/test_admin_sprt.py
 

@@ -422,6 +422,24 @@ disposition:
   advertise 150 physical cores: Windows 10, `.7` 32, `.8` 64, and `.55` 44.
   LTC remains forbidden unless R2 reaches the upper boundary and the complete
   integrity audit is clean.
+- The first four R2 chunks to finish close together were all audited rather
+  than selecting three by score. Tasks 0, 1, 4, and 5 each pass 100 paired
+  openings / 200 games with exact offsets `0/100/400/500`, 100 unique FEN
+  hashes, exact revision/binary/NNUE identities, two color-reversed Xiangqi
+  games per pair, Hash 16, Threads 1, zero tracebacks/time losses, and 300
+  complete artifacts. Recomputed W/L/D and pentanomial exactly match the
+  server: task 0 is `74/70/56` with `[0,12,72,16,0]`; task 1 is `70/63/67`
+  with `[0,14,65,21,0]`; task 4 is `75/70/55` with `[0,13,70,16,1]`; and task
+  5 is `62/69/69` with `[0,25,57,18,0]`. Audit-report SHA-256 values are
+  `d781b7c26dd0a1e7a6fca6bda5541ea6cf26a89300dd44749aa212f539019195`,
+  `4b2b1391e27dac46f3f0ba853c5b82ee631bcbed2dcf787eeda2b2c3ece030d0`,
+  `4f013303ee51ba1310c54fc0463e107864992847d0b82fff7e5c02775c34fab5`,
+  and `a88ab7399552c3786d6cee89bb779d5f306d14dfebd98f9722c44f77bbf41690`;
+  their artifact-manifest hashes are respectively
+  `579fc043f8d93e8e198c48803f425b36f42b192e4b46aa1f2fcb086b9e3fcff9`,
+  `03ef29f03b66b9c168066ce4a8dec6df296313a89770ca10dd7f6138e398e87b`,
+  `d85184c6473088bf7837d4f77280daffbf6228ee85bc74bc8f02b4948c2927a4`,
+  and `990a43cc469be67ab764941dc2506161d9432bbdd811c24d297a5813e9c79386`.
 
 ## Per-candidate protocol
 

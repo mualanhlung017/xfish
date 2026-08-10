@@ -4,7 +4,9 @@ Updated: 2026-08-10.
 
 This is the single execution order across the YaneuraOu, Cfish, and Stockfish
 research ledgers. Source-specific documents remain the technical specification
-for each experiment, but their local ordering does not override this file.
+for each experiment, but their local ordering does not override this file. On
+2026-08-10 the owner moved the reviewed Stockfish blue-Fishtest pool to the
+front of the queue; the older cross-project queue is retained below it.
 
 ## Promotion contract
 
@@ -44,23 +46,37 @@ for each experiment, but their local ordering does not override this file.
 
 | Order | Candidate | Isolated experiment | Source record |
 | ---: | --- | --- | --- |
-| active | `Y015` | Strict STC run `6a79571cdcb6ab381712a7cf` against `v0.3.0-nnue-thp` with the frozen Xfish UHO v1 book; LTC only after acceptance. | `docs/yaneuraou-port-log.md` |
-| Q001 | `Y004` | Correct precomputed checker-update fast path without reading stale state. | `docs/yaneuraou-port-log.md` |
-| Q002 | `CFS01` | Restore least-value-first knight/cannon ordering in Xiangqi SEE; requires the dedicated exhaustive capture oracle. | `docs/cfish-port-plan.md` |
-| Q003 | `SF-X01` | Share continuation-correction history at the tested ownership scope. | `docs/stockfish-fishtest-2025-2026-plan.md` |
-| Q004 | `SF-X02` | Apply the tested null-move ancestor cap. | `docs/stockfish-fishtest-2025-2026-plan.md` |
-| Q005 | `Y007-R1` | Destination-only split-half bitboard iteration. | `docs/yaneuraou-port-log.md` |
-| Q006 | `Y009` | POPCNT `more_than_one()` for the two-word Xiangqi bitboard. | `docs/yaneuraou-port-log.md` |
-| Q007 | `Y012` | Split-word global bitboard pop while preserving ascending square order. | `docs/yaneuraou-port-log.md` |
-| Q008 | `Y007` | Broader move-generation split-half iteration. | `docs/yaneuraou-port-log.md` |
-| Q009 | `Y011` | Directional SEE x-ray refresh with Xiangqi cannon/horse/flying-general property checks. | `docs/yaneuraou-port-log.md` |
-| Q010 | `Y014` | Shared rook/cannon magic occupancy index. | `docs/yaneuraou-port-log.md` |
-| Q011 | `Y013-R` | Direct half-ray rook attacks. | `docs/yaneuraou-port-log.md` |
-| Q012 | `Y013-R2` | Compact rank table plus direct file rays. | `docs/yaneuraou-port-log.md` |
-| Q013 | `Y013-R3` | Packed rook ray lengths. | `docs/yaneuraou-port-log.md` |
-| Q014-Q025 | `SF-B01` through `SF-B12` | Tier-A blue Fishtest candidates, one at a time in numeric order. | `docs/stockfish-blue-tests-2025-2026-plan.md` |
-| Q026-Q044 | `SF-B13` through `SF-B31` | Tier-B candidates in numeric order; run sibling SF-B31 only if SF-B30 fails. | `docs/stockfish-blue-tests-2025-2026-plan.md` |
-| Q045-Q046 | `SF-B32` through `SF-B33` | Low-confidence/platform-limited candidates in numeric order. | `docs/stockfish-blue-tests-2025-2026-plan.md` |
+| active | `SF-B01` | Store the raw scaled LMR reduction in the stack and compare it in the same units. | `docs/stockfish-blue-tests-2025-2026-plan.md` |
+| B002-B012 | `SF-B02` through `SF-B12` | Remaining Tier-A blue candidates, exactly one at a time in numeric order. | `docs/stockfish-blue-tests-2025-2026-plan.md` |
+| B013-B031 | `SF-B13` through `SF-B31` | Tier-B blue candidates in numeric order; run sibling SF-B31 only if SF-B30 fails. | `docs/stockfish-blue-tests-2025-2026-plan.md` |
+| B032-B033 | `SF-B32` through `SF-B33` | Tier-C blue candidates in numeric order. | `docs/stockfish-blue-tests-2025-2026-plan.md` |
+
+Every blue candidate starts from the latest accepted source. Initially that is
+`v0.3.0-nnue-thp`; after an STC-upper and LTC-upper pass, its promoted release
+becomes the baseline for the next row. No candidate may be promoted on an STC
+result alone.
+
+The previous Y015 run `6a79571cdcb6ab381712a7cf` was stopped at the owner's
+request after 5,832 games with LLR `-0.171829659`, between both boundaries. It
+is recorded as inconclusive and is not an accepted baseline or an active run.
+
+## Deferred queue after the blue pool
+
+| Order | Candidate | Isolated experiment | Source record |
+| ---: | --- | --- | --- |
+| D001 | `Y004` | Correct precomputed checker-update fast path without reading stale state. | `docs/yaneuraou-port-log.md` |
+| D002 | `CFS01` | Restore least-value-first knight/cannon ordering in Xiangqi SEE; requires the dedicated exhaustive capture oracle. | `docs/cfish-port-plan.md` |
+| D003 | `SF-X01` | Share continuation-correction history at the tested ownership scope. | `docs/stockfish-fishtest-2025-2026-plan.md` |
+| D004 | `SF-X02` | Apply the tested null-move ancestor cap. | `docs/stockfish-fishtest-2025-2026-plan.md` |
+| D005 | `Y007-R1` | Destination-only split-half bitboard iteration. | `docs/yaneuraou-port-log.md` |
+| D006 | `Y009` | POPCNT `more_than_one()` for the two-word Xiangqi bitboard. | `docs/yaneuraou-port-log.md` |
+| D007 | `Y012` | Split-word global bitboard pop while preserving ascending square order. | `docs/yaneuraou-port-log.md` |
+| D008 | `Y007` | Broader move-generation split-half iteration. | `docs/yaneuraou-port-log.md` |
+| D009 | `Y011` | Directional SEE x-ray refresh with Xiangqi cannon/horse/flying-general property checks. | `docs/yaneuraou-port-log.md` |
+| D010 | `Y014` | Shared rook/cannon magic occupancy index. | `docs/yaneuraou-port-log.md` |
+| D011 | `Y013-R` | Direct half-ray rook attacks. | `docs/yaneuraou-port-log.md` |
+| D012 | `Y013-R2` | Compact rank table plus direct file rays. | `docs/yaneuraou-port-log.md` |
+| D013 | `Y013-R3` | Packed rook ray lengths. | `docs/yaneuraou-port-log.md` |
 
 ## Queue transition rule
 

@@ -31,13 +31,14 @@ chess-specific changes.
 
 ## Execution order
 
-The authoritative inter-project order is `docs/experiment-queue.md`. It keeps
-the active Y015 chain and the higher-priority YaneuraOu, Cfish, and existing
-Stockfish candidates ahead of this blue pool. When this pool's turn is reached,
-process its rows one at a time in the Tier A, Tier B, then Tier C order below.
-A later row is always rebased on the latest accepted baseline; if an earlier
+The authoritative inter-project order is `docs/experiment-queue.md`. By owner
+direction on 2026-08-10, this blue pool now runs first: start with SF-B01, then
+process exactly one row at a time in Tier A, Tier B, and Tier C numeric order.
+The initial accepted baseline is `v0.3.0-nnue-thp`. A later row is always
+rebased on the latest candidate that passed both STC and LTC; if an earlier
 acceptance makes a row identical or structurally obsolete, record it as
-superseded and skip it.
+superseded and skip it. The deferred YaneuraOu, Cfish, and earlier Stockfish
+queue resumes only after this pool is exhausted or the owner reprioritizes it.
 
 ### Tier A: clean, portable search or performance changes
 

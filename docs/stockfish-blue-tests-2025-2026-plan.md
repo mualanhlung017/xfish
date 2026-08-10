@@ -167,6 +167,64 @@ disposition:
   skipped, does not authorize LTC, and has no baseline, source, tag, or release
   effect.
 
+### SF-B02 - remove the late TT prefetch (active STC)
+
+- Accepted baseline remains `v0.3.0-nnue-thp` at
+  `1699e6ba6df744f83951c66bfd5832647d65e41d`. The isolated source idea is
+  contributor commit `e8d83f5a8169d82be33510fa9ef2dc15ed5c19b1`: remove the
+  late TT prefetch in `Position::do_move()` while retaining xfish's earlier
+  speculative prefetch in `Search::Worker::do_move()`.
+- The contributor fork is no longer available, so the exact two-line deletion
+  was recovered from the immutable Fishtest source snapshot and checked against
+  both upstream runs. Run `696a0f72fa8ace4d6d448177` accepted at LLR
+  `2.931778` after 31,072 games, W/L/D `8128/7910/15034`, pentanomial
+  `[83,3326,8508,3528,91]`; the 8-thread SMP follow-up
+  `696cb5da942b47defb5a9401` accepted at LLR `2.939626` after 89,744 games,
+  W/L/D `23069/22915/43760`, pentanomial
+  `[101,10107,24308,10249,107]`. Both used upstream's blue non-regression
+  bounds and reported zero crashes; the SMP run recorded four time losses.
+- The xfish patch changes only `src/position.cpp` by deleting the two-line
+  conditional prefetch after the move key is finalized. Normalized full-index
+  patch SHA-256 is
+  `a22eebd2c57431f70616d7034989796fb66503923a51d8a3d1d4b7a75bb6adbe`;
+  the frozen synthetic candidate revision is
+  `d2e187eb3c161e546fbbab8c7ebb8e0bfaef9787`. Candidate `position.cpp` has
+  git blob `e9e69819a93b6770a6982d4946ad294d571ebce7` and SHA-256
+  `ec7ad1adcc16582bd994de3f498202b6dbf1b287a4c932e49c254ce8a878281a`
+  on Windows, `.7`, and `.55`.
+- Native AVX2 Full-LTO PGO builds retain bench signature `2483430`. Candidate
+  SHA-256 is
+  `b736ae0cdc720b60f62256ac63b75951c97167a4da591d0515063290bd748792`
+  for Windows clang-cl 19,
+  `93d3cf331b4bd03e76fe2e702ee7e5df5a2b44ac948437bc9d8b4825f674763a`
+  for Ubuntu `.7/.8` clang 22.1.8, and
+  `5390f73613e0b2e4451a2ec36587a46baa6dd6457efda52e2db22088d3f6b699`
+  for the independently built `.55` clang 22.1.2 CPU family. The separate
+  `.55` assertions + UBSan binary has SHA-256
+  `b8d9787b8954c12c3db08394659ef486c74c466dca2ac92eb67f8e8b91b67274`.
+- Before Elo, strict `--expect-search-identical` gameplay verification passed
+  `644/644` cases with zero failures on Windows PGO, Ubuntu `.7` PGO, `.55`
+  native PGO, and `.55` assertions + UBSan. Report SHA-256 values are
+  respectively
+  `00a4d24b90f98addd2a872ed54edfce0eef414833882b4985a7020689ff4c21`,
+  `077db5c47d02bb992c26cfdd4d9c13a7f59b3f9ee50ed243a35eac2a2e7d18f9`,
+  `4883205b349c52a3f82fcdcedb44275f585ee8a07d4df81ae4a9b0221912336`,
+  and `6cb30b6b04245463929bb5dfec226912771f134fb73952913dcdaa8385bef2d1`.
+  Legal maps, perft, repetition behavior, raw/final NNUE evaluation, network
+  architecture, depth-7 search result, PV, score, and node count all match the
+  accepted baseline; no rule, gameplay, evaluation, or search-semantic change
+  was found.
+- STC run
+  [`6a79a8423272cca3362ea289`](http://192.168.100.7:6543/tests/view/6a79a8423272cca3362ea289)
+  started only after verification. It uses pentanomial normalized-Elo
+  `SPRT(0.0, 2.0)`, `alpha=beta=0.05`, bounds `+/-2.944438979`, `10+0.1`,
+  Threads `1`, Hash `16`, 200-game chunks, Xfish UHO v1 book SHA-256
+  `5ede082489580fb6aeb8c06c3eb34f72a916c5dbb7ee621b350b835dbdc48b0f`,
+  and seed `xfish-uho-3mvs-w65-85-v1-sf-b02-stc-20260810`. Nine pinned
+  workers advertise 150 physical cores: Windows 10, `.7` 32, `.8` 64, and
+  `.55` 44. LTC remains forbidden unless STC reaches the upper boundary and
+  the complete integrity audit is clean.
+
 ## Per-candidate protocol
 
 1. Use one ignored worktree based on the latest accepted baseline and apply

@@ -36,7 +36,8 @@ The owner explicitly prioritized the full Y007 candidate on 2026-08-10 after
 stopping SF-B01. Each entry is isolated against the then-valid baseline and
 follows the same STC-to-LTC sequence.
 
-1. `Y007` - broader move-generation split-half iteration (active retest).
+1. `Y007` - broader move-generation split-half iteration (owner-stopped,
+   inconclusive; no baseline effect).
 2. `Y004` - corrected precomputed checker update fast path.
 3. `Y007-R1` - destination-only split-half bitboard iteration.
 4. `Y009` - POPCNT `more_than_one()`.
@@ -391,6 +392,15 @@ point estimate. Already-present/audit-only ideas are likewise not candidates.
   their complete artifact-manifest hashes are
   `52e8122ea3fb3520ed550b11a9290813746cbbe2d96461350146dcba0e719a85`
   and `a9fe3cbb8f39167aad6de6c6ab3c39c612940b000a38d294d508fc8e6400d6f7`.
+- At the owner's request, the retest was stopped before either SPRT boundary
+  so the queue could continue with SF-B02. The server atomically retired run
+  `6a7995332e0aebc469f20885` as `inconclusive` with reason
+  `owner-requested-stop-Y007-continue-SF-B02`. Terminal statistics are 8,238
+  games / 4,119 pairs, W/L/D `2829/2827/2582`, pentanomial
+  `[15,729,2634,721,20]`, and LLR `-0.110296180`; crashes and time losses are
+  both zero and all assigned work is drained. This is not a rejection or an
+  acceptance, does not authorize LTC, and changes no source, baseline, tag, or
+  release.
 
 ## Candidate Y007-R1 — destination-only split-half iteration
 

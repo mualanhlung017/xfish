@@ -103,6 +103,65 @@ disposition:
 | 12 | `712db16c`, `985de873`, `2bbaa1a6`, `aec74528`, `e0ac2aa6`, `33d45a21`, `a6d14c21`, `54e1efad`, `0d567963`, `a01b43c6`, `4a5e0e04`, `699c66aa` | Already present or superseded by the current xfish end state. |
 | 5 | `1122503d`, `ca98f789`, `92f2ed24`, `e39d503d`, `c6f7d7a2` | Reject: removes xfish's live anti-shuffle safeguard, targets an obsolete accumulator/qsearch path, or bundles inseparable refactoring and strength changes. |
 
+## Execution ledger
+
+### SF-B01 - raw scaled prior reduction (active)
+
+- Accepted baseline: `v0.3.0-nnue-thp` at
+  `1699e6ba6df744f83951c66bfd5832647d65e41d`.
+- The upstream experiment is the two-commit comparison
+  `253aaefbc03fab2e0c2a0ed83c0abf0ee9be4f92..29dc894d1bfd1fbc397ec55482bffa573e9fc7de`:
+  parent `f80e489` stores the raw scaled LMR value and changes the hindsight
+  thresholds from `3/2` to `3200/2000`; `29dc894d` changes the old IIR guard
+  from `<=3` to `<=3072`.
+- Upstream evidence was checked live: STC run
+  [`697b9de65f56030af97b54ac`](https://tests.stockfishchess.org/tests/view/697b9de65f56030af97b54ac)
+  accepted at LLR `2.946535` after 99,968 games, and LTC run
+  [`697cbee75f56030af97b56d6`](https://tests.stockfishchess.org/tests/view/697cbee75f56030af97b56d6)
+  accepted at LLR `2.941455` after 73,326 games under upstream's blue
+  `[-1.75, 0.25]` non-regression bounds.
+- The xfish adaptation changes only three live lines in `src/search.cpp`: it
+  stores `r` in `Stack::reduction`, compares it with `3200/2000`, and retains
+  xfish's Xiangqi-tuned static-evaluation threshold `193`. The old IIR guard is
+  not ported because current xfish uses a later `followPV` IIR formulation that
+  no longer reads `priorReduction`; restoring the old guard would mix a
+  superseded search policy into this candidate.
+- Normalized full-index patch SHA-256:
+  `1f46dde6a57f84e78bb33bb716ea0929aebfef56f61a82e331d5ffd316972683`.
+- Frozen candidate revision used by xfishtest:
+  `7e90a11d58de2a183661c6fbd88092a8a2262925`; candidate `search.cpp`
+  SHA-256 on Windows, `.7`, and `.55`:
+  `9e9ac7bcb2086c0f7488b8c93d8540d692a84f4724f22026bac93510353197c5`.
+- Native AVX2 Full-LTO PGO builds are frozen independently for each CPU:
+  Windows clang-cl 19.1.5 SHA-256 `9ff984261dbe38635afb4a230b096d91af69d958af70ce936ba78a73d92860d8`;
+  Ubuntu `.7/.8` clang 22.1.8 SHA-256
+  `80787af0f8eb6e6c5b1fb0f139062e7528ac93024c0ca3c869aaef3eccf50745`;
+  Ubuntu `.55` native clang 22.1.2 SHA-256
+  `2d602df0e314c8b471ddfae6f760774cd25716513b8e3b3646942dbeb1e5dd22`.
+  Candidate bench signature is `2188749`; frozen v0.3.0 is `2483430` on all
+  three platforms.
+- Gameplay verification passed before Elo testing against both v1.0.0 and
+  accepted v0.3.0: `644/644`, zero failures, on Windows PGO, Ubuntu `.7` PGO,
+  Ubuntu `.55` native PGO, and a separate `.55` assertions + UBSan build.
+  Report SHA-256 values are respectively
+  `7b84485f5a7650ceeae355c5c874a9ec06e26a9ea9dd2ae5873752a1fe29f2eb`,
+  `8f9fdefab7868a4c8f89fe92051ed541100af620c6fee98034061936c32fcbbd`,
+  `620ef3f4fb8715d4121b8a099b64278fe88771f3e3a658a42107d2c68e78123c`,
+  and `368047161f4b6273af9f171d46a42c0b7f34da88f36156aaef578099a3c548d6`.
+  The suite covered 512 frozen-book roots plus derived playout/repetition
+  cases, legal maps, perft, raw/final NNUE evaluation, network architecture,
+  and best-move legality. All 67 search cases changed as expected for an
+  active strength patch, while every rule/evaluation invariant matched.
+- STC run
+  [`6a7980eb7747bc9087defc6e`](http://192.168.100.7:6543/tests/view/6a7980eb7747bc9087defc6e)
+  started only after that verification. It uses pentanomial normalized-Elo
+  SPRT `(0.0, 2.0)`, `alpha=beta=0.05`, LLR bounds `+/-2.944439`, `10+0.1`,
+  Threads `1`, Hash `16`, 200-game chunks, the frozen Xfish UHO v1 book and
+  seed `xfish-uho-3mvs-w65-85-v1-sf-b01-stc-20260810`. Nine pinned workers
+  advertise 150 physical cores: Windows 10, `.7` 32, `.8` 64, and `.55` 44.
+- State: STC running. LTC must not start unless STC reaches its upper boundary
+  and the completed pairs, PGNs, hashes, crashes, and time losses audit cleanly.
+
 ## Per-candidate protocol
 
 1. Use one ignored worktree based on the latest accepted baseline and apply

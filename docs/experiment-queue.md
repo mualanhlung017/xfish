@@ -6,7 +6,8 @@ This is the single execution order across the YaneuraOu, Cfish, and Stockfish
 research ledgers. Source-specific documents remain the technical specification
 for each experiment, but their local ordering does not override this file. On
 2026-08-10 the owner moved the reviewed Stockfish blue-Fishtest pool to the
-front of the queue; the older cross-project queue is retained below it.
+front of the queue, then explicitly skipped SF-B01 and temporarily prioritized
+the full Y007 retest. The older cross-project queue is retained below it.
 
 ## Promotion contract
 
@@ -46,7 +47,8 @@ front of the queue; the older cross-project queue is retained below it.
 
 | Order | Candidate | Isolated experiment | Source record |
 | ---: | --- | --- | --- |
-| active | `SF-B01` | Store the raw scaled LMR reduction in the stack and compare it in the same units. | `docs/stockfish-blue-tests-2025-2026-plan.md` |
+| active | `Y007` | Broader move-generation split-half iteration, retested directly by SPRT from v0.3.0. | `docs/yaneuraou-port-log.md` |
+| skipped | `SF-B01` | Owner-requested stop at an inconclusive STC result; no baseline effect. | `docs/stockfish-blue-tests-2025-2026-plan.md` |
 | B002-B012 | `SF-B02` through `SF-B12` | Remaining Tier-A blue candidates, exactly one at a time in numeric order. | `docs/stockfish-blue-tests-2025-2026-plan.md` |
 | B013-B031 | `SF-B13` through `SF-B31` | Tier-B blue candidates in numeric order; run sibling SF-B31 only if SF-B30 fails. | `docs/stockfish-blue-tests-2025-2026-plan.md` |
 | B032-B033 | `SF-B32` through `SF-B33` | Tier-C blue candidates in numeric order. | `docs/stockfish-blue-tests-2025-2026-plan.md` |
@@ -71,7 +73,7 @@ is recorded as inconclusive and is not an accepted baseline or an active run.
 | D005 | `Y007-R1` | Destination-only split-half bitboard iteration. | `docs/yaneuraou-port-log.md` |
 | D006 | `Y009` | POPCNT `more_than_one()` for the two-word Xiangqi bitboard. | `docs/yaneuraou-port-log.md` |
 | D007 | `Y012` | Split-word global bitboard pop while preserving ascending square order. | `docs/yaneuraou-port-log.md` |
-| D008 | `Y007` | Broader move-generation split-half iteration. | `docs/yaneuraou-port-log.md` |
+| active above | `Y007` | Broader move-generation split-half iteration. | `docs/yaneuraou-port-log.md` |
 | D009 | `Y011` | Directional SEE x-ray refresh with Xiangqi cannon/horse/flying-general property checks. | `docs/yaneuraou-port-log.md` |
 | D010 | `Y014` | Shared rook/cannon magic occupancy index. | `docs/yaneuraou-port-log.md` |
 | D011 | `Y013-R` | Direct half-ray rook attacks. | `docs/yaneuraou-port-log.md` |

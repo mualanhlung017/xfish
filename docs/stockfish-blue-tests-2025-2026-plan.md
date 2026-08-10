@@ -105,7 +105,7 @@ disposition:
 
 ## Execution ledger
 
-### SF-B01 - raw scaled prior reduction (active)
+### SF-B01 - raw scaled prior reduction (skipped; inconclusive)
 
 - Accepted baseline: `v0.3.0-nnue-thp` at
   `1699e6ba6df744f83951c66bfd5832647d65e41d`.
@@ -159,8 +159,13 @@ disposition:
   Threads `1`, Hash `16`, 200-game chunks, the frozen Xfish UHO v1 book and
   seed `xfish-uho-3mvs-w65-85-v1-sf-b01-stc-20260810`. Nine pinned workers
   advertise 150 physical cores: Windows 10, `.7` 32, `.8` 64, and `.55` 44.
-- State: STC running. LTC must not start unless STC reaches its upper boundary
-  and the completed pairs, PGNs, hashes, crashes, and time losses audit cleanly.
+- At the owner's request, STC was stopped and retired before either SPRT
+  boundary so Y007 could be retested. Terminal run state is `inconclusive` at
+  5,928 games / 2,964 pairs, W/L/D `2017/2060/1851`, pentanomial
+  `[19,570,1821,543,11]`, and LLR `-0.641199995`; crashes and time losses are
+  both zero. All assigned tasks drained (`active=0`, `pending=0`). SF-B01 is
+  skipped, does not authorize LTC, and has no baseline, source, tag, or release
+  effect.
 
 ## Per-candidate protocol
 

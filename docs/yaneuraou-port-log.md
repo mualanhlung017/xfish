@@ -32,15 +32,15 @@ tested as isolated xfish candidates. The reference checkout is pinned at
 ## Direct-Elo retest queue for historical NPS rejections
 
 Every safe YaneuraOu candidate rejected only by comparative NPS is reopened.
-Y015 is first being re-qualified against `v0.3.0-nnue-thp`; after it reaches a
-terminal SPRT decision, each entry below is isolated against the then-valid
-baseline and follows the same STC-to-LTC sequence.
+The owner explicitly prioritized the full Y007 candidate on 2026-08-10 after
+stopping SF-B01. Each entry is isolated against the then-valid baseline and
+follows the same STC-to-LTC sequence.
 
-1. `Y004` - corrected precomputed checker update fast path (next candidate).
-2. `Y007-R1` - destination-only split-half bitboard iteration.
-3. `Y009` - POPCNT `more_than_one()`.
-4. `Y012` - split-word global bitboard pop.
-5. `Y007` - broader move-generation split-half iteration.
+1. `Y007` - broader move-generation split-half iteration (active retest).
+2. `Y004` - corrected precomputed checker update fast path.
+3. `Y007-R1` - destination-only split-half bitboard iteration.
+4. `Y009` - POPCNT `more_than_one()`.
+5. `Y012` - split-word global bitboard pop.
 6. `Y011` - directional SEE ray refresh.
 7. `Y014` - shared rook/cannon magic occupancy index.
 8. `Y013-R` - direct half-ray rook attacks.
@@ -324,6 +324,73 @@ point estimate. Already-present/audit-only ideas are likewise not candidates.
   platform gain is `+0.3571%`, but Linux is negative. Y007 therefore fails the
   mandatory per-platform-positive condition and is rejected at Gate 1. No Elo
   games are run; master, baseline, tags, and releases remain unchanged.
+
+### Y007 direct-Elo retest from v0.3.0 (2026-08-10)
+
+- Comparative NPS gates are now retired, so the owner reopened the exact full
+  Y007 patch against accepted baseline `v0.3.0-nnue-thp` at
+  `1699e6ba6df744f83951c66bfd5832647d65e41d`. Its normalized patch SHA-256 is
+  `cb7ef2b8ca8fc8108453eed9165b423787f0c5167ed80ee6160056d52284651d`;
+  the frozen synthetic candidate revision remains
+  `197567dbe31d74354d55610dd933624f3acd3989`.
+- Native AVX2 Full-LTO PGO artifacts retain bench signature `2483430`.
+  Candidate SHA-256 is
+  `9f68c66bf5f57c4f5176620dce9d4d4525b26e781cea859ad49824e7086be59a`
+  on Windows clang-cl 19,
+  `3d3259585e4cc173990859f76d654a0c955de86d7944fa304a6ce624a08558db`
+  on Ubuntu `.7/.8` clang 22, and
+  `fa45377874c8d4a222125f69b4c37921c8c5739512b5c33d369551aba506559a`
+  on the independently built `.55` CPU family. A separate `.55` assertions +
+  UBSan build has SHA-256
+  `77ca41fdf6bf602bfa9996de2855d3f853f3e8279768d94c556f3d8ac4102c2e`.
+- Before Elo, expanded strict search-identical verification passed `644/644`
+  cases with zero failures on Windows PGO, Ubuntu `.7` PGO, `.55` native PGO,
+  and `.55` assertions + UBSan. Report SHA-256 values are respectively
+  `7a98a2e29d6f3c1bd48e54ce513e7fafbf1ce497447d4e5853bc4f8c7ac00911`,
+  `c36cc8845bf6f72226bf8f2c0519586edee874b9b70b38ef495c85cb4e8c8c78`,
+  `1a5279ab463136a62371209a17df51dd955a7b019ff9df8182f090b1b27a64f0`,
+  and `1ed3a9500eaac4a01d491637bd234b2cf1eaeecc9009733e8b7eebc1e453bc62`.
+  Legal maps, depth-3 perft, repetition cases, raw/final NNUE evaluation,
+  network architecture, depth-7 search result, PV, score, and node count all
+  match v0.3.0; no rule, gameplay, or search-semantic difference was found.
+- Initial infrastructure run
+  [`6a7990a762cf50c36c388dce`](http://192.168.100.7:6543/tests/view/6a7990a762cf50c36c388dce)
+  was retired as `invalid`, not as an Elo decision. Three `.55` match attempts
+  exceeded the worker's old 249/250-second watchdog. The server itself recorded
+  no crash or time loss, but retrying a time-controlled game could censor slow
+  samples, so the run was discarded at 1,084 games / 542 pairs, W/L/D
+  `383/373/328`, pentanomial `[4,90,348,92,8]`, and LLR `+0.107227`.
+- The operational watchdog floor was raised from 120 to 900 seconds without
+  changing engine commands, time control, binaries, book, or game result
+  handling. The patched worker passed its three identity tests and has SHA-256
+  `1d20b612e51e787ef2c042035ce23d5492f21538da970fa4bdc221132b41ddd7`
+  on Windows and every Linux host; the original worker is preserved on Linux.
+- Fresh STC run
+  [`6a7995332e0aebc469f20885`](http://192.168.100.7:6543/tests/view/6a7995332e0aebc469f20885)
+  restarted at game zero with independent result/state roots and seed
+  `xfish-uho-3mvs-w65-85-v1-y007-v030-stc-r2-20260810`. It uses pentanomial
+  normalized-Elo `SPRT(0.0, 2.0)`, `alpha=beta=0.05`, bounds
+  `+/-2.944438979`, `10+0.1`, Threads `1`, Hash `16`, 200-game chunks, and
+  Xfish UHO v1 book SHA-256
+  `5ede082489580fb6aeb8c06c3eb34f72a916c5dbb7ee621b350b835dbdc48b0f`.
+  Nine pinned workers advertise 150 physical cores: Windows 10, `.7` 32, `.8`
+  64, and `.55` 44. LTC remains forbidden unless STC reaches the upper boundary
+  and the complete integrity audit is clean.
+- The first two completed chunks were independently audited with
+  `scripts/audit-xfishtest-task.py` (deployed SHA-256
+  `16ec0b54e9331d8949889da84d677ed559c4112021765856ddb541d69de5efad`).
+  Task 1 on `.7` and task 4 on `.8` each passed all 100 paired openings / 200
+  games: contiguous local/global indices, 100 unique FEN hashes, exact
+  revision/binary/NNUE identities, two color-reversed Xiangqi games per pair,
+  Hash 16, Threads 1, zero time losses, and 300 complete artifacts. Recomputed
+  W/L/D and pentanomial exactly match the server: task 1 is `73/74/53` with
+  `[0,19,63,18,0]`; task 4 is `80/73/47` with `[0,13,68,18,1]`. Audit-report
+  SHA-256 values are
+  `acd2e88e0d715985ee4daef947db3ccdac90f48bbcfa2d9270b9f541f70ce99b`
+  and `bc23a2b89bb86531e29cb67b1e531cfb47b1c9aa5671a437aaf206ce4591fba6`;
+  their complete artifact-manifest hashes are
+  `52e8122ea3fb3520ed550b11a9290813746cbbe2d96461350146dcba0e719a85`
+  and `a9fe3cbb8f39167aad6de6c6ab3c39c612940b000a38d294d508fc8e6400d6f7`.
 
 ## Candidate Y007-R1 — destination-only split-half iteration
 

@@ -870,11 +870,35 @@ point estimate. Already-present/audit-only ideas are likewise not candidates.
   `6a7922f9d4f4fd50e97a2ce2` proved the server receives the pair vector and the
   watcher records a safety cap reached between the boundaries as
   `inconclusive`.
-- Valid Y015 STC requalification restarted from zero as run
+- Y015 STC requalification restarted from zero as run
   `6a7923f7fc55491a56830ef8`, seed
   `xfish-xiangqi-20260810-y015-v030-stc-pentanomial-v2`, on nine workers and
-  150 physical cores (Windows 10, `.7` 32, `.8` 64, `.55` 44). Y004 remains
-  next and cannot start until Y015 reaches a terminal decision.
+  150 physical cores (Windows 10, `.7` 32, `.8` 64, `.55` 44). It was
+  administratively retired as `invalid` after 16,600 games because the
+  historical `xiangqi.epd` opening source produced a `76.93%` draw rate and
+  was superseded. The preserved result is W/L/D `1922/1907/12771`,
+  pentanomial `[10,502,7263,513,12]`, LLR `+0.059938396`, zero crashes, and
+  zero time losses. This is an opening-book rejection, not an STC decision on
+  Y015.
+- A replacement STC must restart at game zero with the immutable
+  Xfish-generated `xfish-uho-3mvs-w65-85-v1.epd` book. Y004 remains next and
+  cannot start until Y015 reaches a terminal decision under the replacement
+  book.
+- The replacement book passed generation with 79,270 unique positions and
+  SHA-256
+  `5ede082489580fb6aeb8c06c3eb34f72a916c5dbb7ee621b350b835dbdc48b0f`.
+  The expanded Ubuntu gameplay gate passed all 644 positions against both
+  `v1.0.0` and `v0.3.0-nnue-thp`; its report SHA-256 is
+  `3d5e003ee56697b72466dbf715326b046cbf91383e892f8b69d103118931fd58`.
+- Replacement STC run `6a79571cdcb6ab381712a7cf` started from game zero
+  with seed `xfish-uho-3mvs-w65-85-v1-y015-stc-20260810`. MongoDB records the
+  exact book ID/hash/count, the expected engine revisions and signatures,
+  `10+0.1`, `Threads=1`, and `Hash=16`. Its first 224 games had W/L/D
+  `72/73/79`, draw rate `35.27%`, pentanomial `[1,20,73,15,3]`, LLR
+  `-0.015749`, and zero runtime failures. All nine workers are active on the
+  intended 150 physical cores. LTC is preconfigured with the same artifact and
+  independent seed `xfish-uho-3mvs-w65-85-v1-y015-ltc-20260810`, but may start
+  only after an STC upper-bound crossing.
 
 ## Additional core-speed audit after Y007
 

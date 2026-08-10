@@ -4,6 +4,7 @@ import importlib.util
 import json
 import math
 from pathlib import Path
+import re
 import time
 
 from bson.objectid import ObjectId
@@ -23,6 +24,7 @@ SPRT_STAGES = {
     "stc": {"elo0": 0.0, "elo1": 2.0, "tc": "10+0.1"},
     "ltc": {"elo0": 0.5, "elo1": 2.5, "tc": "60+0.6"},
 }
+SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
 def load_official_llrcalc(path=OFFICIAL_LLR_PATH):
@@ -54,6 +56,13 @@ def positive_float(value):
         raise argparse.ArgumentTypeError("must be a number") from error
     if parsed <= 0:
         raise argparse.ArgumentTypeError("must be positive")
+    return parsed
+
+
+def sha256_digest(value):
+    parsed = value.lower()
+    if not SHA256_RE.fullmatch(parsed):
+        raise argparse.ArgumentTypeError("must be a 64-digit SHA-256")
     return parsed
 
 
@@ -119,6 +128,14 @@ def sprt_for_run(args, rundb):
         raise ValueError("LTC baseline SHA does not match its parent STC run")
     if parent_args.get("resolved_new") != args.new_sha:
         raise ValueError("LTC candidate SHA does not match its parent STC run")
+    if parent_args.get("book") != args.book:
+        raise ValueError("LTC opening book ID does not match its parent STC run")
+    if parent_args.get("book_sha256") != args.book_sha256:
+        raise ValueError("LTC opening book SHA-256 does not match its parent STC run")
+    if int(parent_args.get("book_positions", 0)) != args.book_positions:
+        raise ValueError("LTC opening book size does not match its parent STC run")
+    if parent_args.get("opening_seed") == args.opening_seed:
+        raise ValueError("LTC requires an opening seed independent from STC")
 
     sprt["parent_run_id"] = args.parent_run_id
     return sprt
@@ -283,6 +300,11 @@ def create_run(args):
         raise ValueError("threads must be positive")
     if args.hash_mb < 1:
         raise ValueError("hash size must be positive")
+    if games // 2 > args.book_positions:
+        raise ValueError(
+            "opening book has %d positions but the run can assign %d unique pairs"
+            % (args.book_positions, games // 2)
+        )
     rundb.chunk_size = chunk_size
 
     run_id = rundb.new_run(
@@ -314,11 +336,14 @@ def create_run(args):
         throughput=1000,
         priority=0,
     )
+    run_fields = {
+        "args.book_sha256": args.book_sha256,
+        "args.book_positions": args.book_positions,
+        "args.opening_seed": args.opening_seed,
+    }
     if sprt is not None:
-        rundb.runs.update_one(
-            {"_id": run_id},
-            {"$set": {"args.%s" % SPRT_KEY: sprt}},
-        )
+        run_fields["args.%s" % SPRT_KEY] = sprt
+    rundb.runs.update_one({"_id": run_id}, {"$set": run_fields})
     rundb.approve_run(run_id, args.username)
     print(json.dumps({"run_id": str(run_id), "existing": False}))
 
@@ -548,6 +573,98 @@ def stop_run(args):
     print(json.dumps({"run_id": args.run_id, "stopped": True}))
 
 
+def retirement_update_fields(results, current_sprt, state, reason):
+    if state not in ("invalid", "inconclusive"):
+        raise ValueError("manual terminal state must be invalid or inconclusive")
+    reason = reason.strip()
+    if not reason:
+        raise ValueError("manual terminal reason must not be empty")
+
+    games = results["wins"] + results["losses"] + results["draws"]
+    prefix = "args.%s" % SPRT_KEY
+    info = results_info_for_sprt(results, current_sprt, state=state)
+    info["info"].append("Stopped: %s" % reason)
+    return {
+        "%s.state" % prefix: state,
+        "%s.llr" % prefix: current_sprt["llr"],
+        "%s.stop_reason" % prefix: reason,
+        "%s.finished_games" % prefix: games,
+        "%s.finished_pairs" % prefix: sum(results["pentanomial"]),
+        "%s.current_games" % prefix: games,
+        "%s.current_pentanomial" % prefix: results["pentanomial"],
+        "%s.lower_bound" % prefix: current_sprt["lower_bound"],
+        "%s.upper_bound" % prefix: current_sprt["upper_bound"],
+        "results_info": info,
+        "tasks.$[].active": False,
+        "tasks.$[].pending": False,
+        "finished": True,
+    }
+
+
+def retire_run(args):
+    if not ObjectId.is_valid(args.run_id):
+        raise ValueError("run id is invalid")
+    rundb = RunDb()
+    run_id = ObjectId(args.run_id)
+    run = rundb.get_run(run_id)
+    if run is None:
+        raise ValueError("run not found")
+
+    config = run.get("args", {}).get(SPRT_KEY)
+    if config is None:
+        raise ValueError("run is not an xfish pentanomial SPRT run")
+    existing_state = config.get("state", "")
+    if existing_state:
+        if existing_state == args.state and config.get("stop_reason") == args.reason:
+            print(
+                json.dumps(
+                    {
+                        "run_id": args.run_id,
+                        "state": existing_state,
+                        "reason": config.get("stop_reason"),
+                        "existing": True,
+                    },
+                    sort_keys=True,
+                )
+            )
+            return
+        raise ValueError("run already has terminal state %s" % existing_state)
+
+    results = aggregate_results(run)
+    current_sprt = sprt_status(run, results)
+    if current_sprt["state"]:
+        raise ValueError(
+            "run already reached the %s LLR boundary" % current_sprt["state"]
+        )
+    fields = retirement_update_fields(
+        results, current_sprt, args.state, args.reason
+    )
+    decision = rundb.runs.update_one(
+        {
+            "_id": run_id,
+            "args.%s.state" % SPRT_KEY: "",
+            "finished": {"$ne": True},
+        },
+        {"$set": fields},
+    )
+    if not decision.modified_count:
+        raise RuntimeError("run changed concurrently; no terminal update was written")
+    print(
+        json.dumps(
+            {
+                "run_id": args.run_id,
+                "state": args.state,
+                "reason": args.reason,
+                "games": fields["args.%s.finished_games" % SPRT_KEY],
+                "pentanomial": results["pentanomial"],
+                "llr": current_sprt["llr"],
+                "existing": False,
+            },
+            sort_keys=True,
+        )
+    )
+
+
 def parser():
     root = argparse.ArgumentParser()
     commands = root.add_subparsers(dest="command", required=True)
@@ -572,7 +689,10 @@ def parser():
     run.add_argument("--tc")
     run.add_argument("--threads", type=positive_int, default=1)
     run.add_argument("--hash-mb", type=positive_int, default=16)
-    run.add_argument("--book", default="xiangqi.epd")
+    run.add_argument("--book", required=True)
+    run.add_argument("--book-sha256", type=sha256_digest, required=True)
+    run.add_argument("--book-positions", type=positive_int, required=True)
+    run.add_argument("--opening-seed", required=True)
     run.add_argument("--base-tag", required=True)
     run.add_argument("--new-tag", required=True)
     run.add_argument("--base-sha", required=True)
@@ -602,6 +722,12 @@ def parser():
     stop = commands.add_parser("stop-run")
     stop.add_argument("run_id")
     stop.set_defaults(func=stop_run)
+
+    retire = commands.add_parser("retire-run")
+    retire.add_argument("run_id")
+    retire.add_argument("--state", choices=("invalid", "inconclusive"), required=True)
+    retire.add_argument("--reason", required=True)
+    retire.set_defaults(func=retire_run)
     return root
 
 

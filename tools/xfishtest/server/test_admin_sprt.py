@@ -25,6 +25,10 @@ def args(stage, parent_run_id=None):
         parent_run_id=parent_run_id,
         base_sha=BASE_SHA,
         new_sha=NEW_SHA,
+        book="xfish-uho-3mvs-w65-85-v1.epd",
+        book_sha256="a" * 64,
+        book_positions=100000,
+        opening_seed="ltc-independent-seed",
     )
 
 
@@ -143,6 +147,55 @@ class SprtPolicyTests(unittest.TestCase):
         self.assertEqual(info["style"], "yellow")
         self.assertIn("LTC inconclusive", info["info"][0])
 
+    def test_manual_retirement_preserves_results_and_reason(self):
+        aggregate = results(20, 16, 164, [0, 8, 80, 12, 0])
+        current = {
+            "stage": "stc",
+            "state": "",
+            "llr": 0.125,
+            "lower_bound": -math.log(19),
+            "upper_bound": math.log(19),
+            "elo0": 0.0,
+            "elo1": 2.0,
+        }
+        fields = admin.retirement_update_fields(
+            aggregate,
+            current,
+            "invalid",
+            "opening_book_superseded_high_draw_rate",
+        )
+        prefix = "args.%s" % admin.SPRT_KEY
+        self.assertEqual(fields["%s.state" % prefix], "invalid")
+        self.assertEqual(fields["%s.finished_games" % prefix], 200)
+        self.assertEqual(fields["%s.finished_pairs" % prefix], 100)
+        self.assertEqual(
+            fields["%s.current_pentanomial" % prefix], aggregate["pentanomial"]
+        )
+        self.assertTrue(fields["finished"])
+        self.assertFalse(fields["tasks.$[].active"])
+        self.assertIn(
+            "opening_book_superseded_high_draw_rate",
+            fields["results_info"]["info"][-1],
+        )
+
+    def test_manual_retirement_rejects_empty_reason(self):
+        current = {
+            "stage": "stc",
+            "state": "",
+            "llr": 0.0,
+            "lower_bound": -math.log(19),
+            "upper_bound": math.log(19),
+            "elo0": 0.0,
+            "elo1": 2.0,
+        }
+        with self.assertRaisesRegex(ValueError, "reason"):
+            admin.retirement_update_fields(
+                results(0, 0, 0, [0, 0, 0, 0, 0]),
+                current,
+                "invalid",
+                "   ",
+            )
+
     def test_aggregate_results_keeps_pair_frequencies(self):
         run = {
             "tasks": [
@@ -182,6 +235,10 @@ class SprtPolicyTests(unittest.TestCase):
             "args": {
                 "resolved_base": BASE_SHA,
                 "resolved_new": NEW_SHA,
+                "book": "xfish-uho-3mvs-w65-85-v1.epd",
+                "book_sha256": "a" * 64,
+                "book_positions": 100000,
+                "opening_seed": "stc-seed",
                 admin.SPRT_KEY: {
                     "stage": "stc",
                     "elo0": 0.0,
@@ -199,6 +256,10 @@ class SprtPolicyTests(unittest.TestCase):
             "args": {
                 "resolved_base": BASE_SHA,
                 "resolved_new": NEW_SHA,
+                "book": "xfish-uho-3mvs-w65-85-v1.epd",
+                "book_sha256": "a" * 64,
+                "book_positions": 100000,
+                "opening_seed": "stc-seed",
                 admin.SPRT_KEY: {
                     "stage": "stc",
                     "elo0": 0.0,
@@ -211,6 +272,29 @@ class SprtPolicyTests(unittest.TestCase):
         self.assertEqual(config["stage"], "ltc")
         self.assertEqual((config["elo0"], config["elo1"]), (0.5, 2.5))
         self.assertEqual(config["parent_run_id"], run_id)
+
+    def test_ltc_requires_an_independent_opening_seed(self):
+        run_id = str(ObjectId())
+        parent = {
+            "args": {
+                "resolved_base": BASE_SHA,
+                "resolved_new": NEW_SHA,
+                "book": "xfish-uho-3mvs-w65-85-v1.epd",
+                "book_sha256": "a" * 64,
+                "book_positions": 100000,
+                "opening_seed": "same-seed",
+                admin.SPRT_KEY: {
+                    "stage": "stc",
+                    "elo0": 0.0,
+                    "elo1": 2.0,
+                    "state": "accepted",
+                },
+            }
+        }
+        child_args = args("ltc", run_id)
+        child_args.opening_seed = "same-seed"
+        with self.assertRaisesRegex(ValueError, "independent"):
+            admin.sprt_for_run(child_args, FakeRunDb(parent))
 
 
 if __name__ == "__main__":

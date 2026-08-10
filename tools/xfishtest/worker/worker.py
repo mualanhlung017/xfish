@@ -140,6 +140,25 @@ def parse_tc(tc):
     return float(match.group(2)), float(match.group(3) or 0.0)
 
 
+def verify_run_book_identity(
+    run_args, book_id, book_sha256, book_positions, opening_seed
+):
+    required = ("book", "book_sha256", "book_positions", "opening_seed")
+    missing = [name for name in required if name not in run_args]
+    if missing:
+        raise ValueError(
+            "run is missing immutable opening metadata: %s" % ", ".join(missing)
+        )
+    if run_args["book"] != book_id:
+        raise ValueError("run opening book ID does not match this worker")
+    if str(run_args["book_sha256"]).lower() != book_sha256.lower():
+        raise ValueError("run opening book checksum does not match this worker")
+    if int(run_args["book_positions"]) != int(book_positions):
+        raise ValueError("run opening book position count does not match this worker")
+    if run_args["opening_seed"] != opening_seed:
+        raise ValueError("run opening seed does not match this worker")
+
+
 def run_process(command, cwd, output_path, env=None, timeout=None):
     creationflags = 0
     kwargs = {}
@@ -227,6 +246,9 @@ class Worker:
         if self.concurrency < 1:
             raise ValueError("concurrency must be positive")
         self.book = Path(self.config["book"]).resolve()
+        self.book_id = self.config["book_id"]
+        self.book_positions = int(self.config["book_positions"])
+        self.opening_seed = self.config["opening_seed"]
         self.network = Path(self.config["network"]).resolve()
         self.upstream = Path(self.config["variantfishtest"]).resolve()
         self.result_root = Path(self.config["result_root"]).resolve()
@@ -237,6 +259,11 @@ class Worker:
         self.instance_lock = acquire_instance_lock(self.state_root)
         self.verify_static_inputs()
         self.openings = self.load_openings()
+        if len(self.openings) != self.book_positions:
+            raise ValueError(
+                "opening book position count mismatch: expected %d, got %d"
+                % (self.book_positions, len(self.openings))
+            )
         self.worker_info = self.make_worker_info()
 
     def verify_static_inputs(self):
@@ -258,7 +285,7 @@ class Worker:
             if line and line not in seen:
                 seen.add(line)
                 lines.append(line)
-        seed = str(self.config.get("opening_seed", "xfish-xiangqi-v1")).encode("utf-8")
+        seed = str(self.opening_seed).encode("utf-8")
         lines.sort(key=lambda line: hashlib.sha256(seed + b"\0" + line.encode("utf-8")).digest())
         log("loaded %d unique deterministic Xiangqi openings" % len(lines))
         return lines
@@ -277,7 +304,7 @@ class Worker:
             "architecture": list(platform.architecture()),
             "concurrency": self.concurrency,
             "username": self.username,
-            "version": "xfish-xiangqi-1.0:py%d.%d.%d" % sys.version_info[:3],
+            "version": "xfish-xiangqi-1.1:py%d.%d.%d" % sys.version_info[:3],
             "unique_key": unique_key,
         }
 
@@ -489,6 +516,13 @@ class Worker:
 
     def play_task(self, response):
         run = response["run"]
+        verify_run_book_identity(
+            run["args"],
+            self.book_id,
+            self.config["book_sha256"],
+            self.book_positions,
+            self.opening_seed,
+        )
         task_id = int(response["task_id"])
         run_id = str(run["_id"])
         engine_threads = int(run["args"].get("threads", 1))

@@ -1,0 +1,75 @@
+{
+  "accepted_wdl_win_histogram": {
+    "650-674": 7460,
+    "675-699": 8111,
+    "700-724": 9034,
+    "725-749": 9636,
+    "750-774": 10110,
+    "775-799": 10847,
+    "800-824": 11245,
+    "825-849": 12252,
+    "850-874": 575
+  },
+  "artifacts": {
+    "candidates_epd_sha256": "797f2ac55971fad194964b1d80f0ddbcee319b85d519e9544eb46d08453da42f",
+    "final_paths_sha256": "92c75ba19bac65d0debdf51d3ca7b12c4985cc6af7e3298e9b0201961b2c8e04",
+    "generation_config_sha256": "01db1685bb2daf86aee9c51e33e32a5294f507936ecb94660dc60bc8fc37b28b",
+    "positions_jsonl_sha256": "4775dfc01aedc1c141cfbe8b0f17768a7c5c7062cc20c624779a8e15eae8e932",
+    "scores_jsonl_sha256": "6be161802d525657d2d616d9554a5e25385d791e36ad9d0d5494e3f48c70ec20"
+  },
+  "book": {
+    "name": "xfish-uho-3mvs-w65-85-v1.epd",
+    "path": "/home/gr17/services/xfish-bookgen/xfish-uho-3mvs-w65-85-v1/xfish-uho-3mvs-w65-85-v1.epd",
+    "positions": 79270,
+    "sha256": "5ede082489580fb6aeb8c06c3eb34f72a916c5dbb7ee621b350b835dbdc48b0f"
+  },
+  "counts": {
+    "accepted_fens": 79270,
+    "checked_positions": 2266,
+    "duplicate_fens": 195057,
+    "leaf_paths": 409405,
+    "minimum_positions": 50000,
+    "scored_fens": 212082,
+    "unique_noncheck_fens": 212082
+  },
+  "created_utc": "2026-08-10T04:38:50.663113+00:00",
+  "elapsed_seconds": 2599.3665988239954,
+  "generator": {
+    "engine": "/home/gr17/services/xfishtest-worker/engines/xfish-v0.3.0-xeon-pgo",
+    "engine_identification": [
+      "Pikafish dev-20260808-1699e6ba"
+    ],
+    "engine_sha256": "4c7220a24b6316b437816bf3fe82f3f8de1b11d3998730da1ffbd0ec7fd1f3ac",
+    "implementation": "scripts/generate-xiangqi-uho.py",
+    "network": "/home/gr17/services/xfishtest-worker/engines/pikafish.nnue",
+    "network_sha256": "3cd15292bf8c979884262f57fc723959fc0dea43b4d8d544f88db5ceb2479e24"
+  },
+  "parameters": {
+    "black_branch": 16,
+    "black_move_window_cp": 300,
+    "engine_sha256": "4c7220a24b6316b437816bf3fe82f3f8de1b11d3998730da1ffbd0ec7fd1f3ac",
+    "final_black_branch": 48,
+    "final_black_move_window_cp": 800,
+    "final_black_wdl_margin": 100,
+    "generation_nodes": 50000,
+    "generator": "scripts/generate-xiangqi-uho.py",
+    "network_sha256": "3cd15292bf8c979884262f57fc723959fc0dea43b4d8d544f88db5ceb2479e24",
+    "plies": 6,
+    "red_branch": 6,
+    "red_move_window_cp": 100,
+    "schema": 1,
+    "scoring_nodes": 100000,
+    "second_move_window_cp": 150,
+    "seed": "xfish-uho-xiangqi-3mvs-w65-85-v1",
+    "start_fen": "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w - - 0 1",
+    "wdl_win_max": 850,
+    "wdl_win_min": 650
+  },
+  "rejection_reasons": {
+    "accepted": 79270,
+    "forced_or_one_move": 168,
+    "wdl_outside_band": 132644
+  },
+  "schema": 1,
+  "status": "passed"
+}

@@ -9,16 +9,23 @@ while sequential-test likelihoods are calculated with `LLRcalc.py` from
 `official-stockfish/fishtest` commit
 `b571c90db880f973a7eea57bd344600fe89a7e8e`. Games are run with
 `fairy-stockfish/variantfishtest` commit
-`acecc04a3501f2efbe6b07a87187fd105b37ac3a`.  The opening source is
-`fairy-stockfish/books` commit
-`aecb9b0cfe0a8a97b13f8ea8b86157fa07e13f45`, file `xiangqi.epd`
-(SHA-256 `a52a4630ad69b99c26ee587232d9d209b82d9e4dc3142dbd4d31a93857d1ea5f`).
+`acecc04a3501f2efbe6b07a87187fd105b37ac3a`.  New Elo tests use the immutable
+Xfish-generated `xfish-uho-3mvs-w65-85-v1.epd` corpus documented in
+`../../docs/xiangqi-uho-book.md`.  The historical `xiangqi.epd` corpus is
+retained only for reproduction and must not be assigned to a new run.
+Variantfishtest remains only the pinned match coordinator: no Fairy-Stockfish
+engine participates in generating, scoring, or filtering the new book.
+The frozen v1 artifact has 79,270 unique positions and SHA-256
+`5ede082489580fb6aeb8c06c3eb34f72a916c5dbb7ee621b350b835dbdc48b0f`.
 
 ## Test policy
 
 - Each opening is played twice with colors reversed.
 - Openings are assigned deterministically from the server task index, with no
   overlap between machines.
+- The run and every worker must agree exactly on book ID, SHA-256, unique
+  position count, and opening seed.  Workers reject missing or mismatched
+  metadata, and the server rejects a game cap that would reuse a position.
 - The default short time control is Stockfish's `10+0.1`, scaled on each
   worker by `628000 / loaded_baseline_nps`.
 - Normal runs default to `Threads=1`, `Hash=16`. The run creator also accepts

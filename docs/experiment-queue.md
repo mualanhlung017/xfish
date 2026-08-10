@@ -44,7 +44,7 @@ for each experiment, but their local ordering does not override this file.
 
 | Order | Candidate | Isolated experiment | Source record |
 | ---: | --- | --- | --- |
-| active | `Y015` | Re-qualify cached king-square access against `v0.3.0-nnue-thp` under strict STC/LTC. | `docs/yaneuraou-port-log.md` |
+| active | `Y015` | Strict STC run `6a79571cdcb6ab381712a7cf` against `v0.3.0-nnue-thp` with the frozen Xfish UHO v1 book; LTC only after acceptance. | `docs/yaneuraou-port-log.md` |
 | Q001 | `Y004` | Correct precomputed checker-update fast path without reading stale state. | `docs/yaneuraou-port-log.md` |
 | Q002 | `CFS01` | Restore least-value-first knight/cannon ordering in Xiangqi SEE; requires the dedicated exhaustive capture oracle. | `docs/cfish-port-plan.md` |
 | Q003 | `SF-X01` | Share continuation-correction history at the tested ownership scope. | `docs/stockfish-fishtest-2025-2026-plan.md` |

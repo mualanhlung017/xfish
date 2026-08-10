@@ -167,7 +167,7 @@ disposition:
   skipped, does not authorize LTC, and has no baseline, source, tag, or release
   effect.
 
-### SF-B02 - remove the late TT prefetch (active STC)
+### SF-B02 - remove the late TT prefetch (stopped; inconclusive)
 
 - Accepted baseline remains `v0.3.0-nnue-thp` at
   `1699e6ba6df744f83951c66bfd5832647d65e41d`. The isolated source idea is
@@ -242,6 +242,13 @@ disposition:
   `b9b39b231243036073dccca27483570ef52188b32f0cf7f9e0e07500947f03fa`,
   `e25047fbcc57612ad0e12cc98135de70fd8cb9fc42eb31ed3a84e6e101ba59f7`,
   and `e492b517f9a30775eb325e1eb71ed0c03de9238e38da5b51dcddd4d8faa87e4b`.
+- At the owner's request, STC was stopped before either boundary and the run
+  was atomically retired as `inconclusive` with reason
+  `owner-requested-stop-SF-B02-continue-SF-B03`. Terminal statistics are 1,860
+  games / 930 pairs, W/L/D `629/660/571`, pentanomial
+  `[3,172,614,135,6]`, and LLR `-0.444776368`; crashes and time losses are
+  both zero, and server work is drained (`active=0`, `pending=0`). SF-B02 does
+  not authorize LTC and has no baseline, source, tag, or release effect.
 
 ## Per-candidate protocol
 

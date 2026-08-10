@@ -7,8 +7,8 @@ research ledgers. Source-specific documents remain the technical specification
 for each experiment, but their local ordering does not override this file. On
 2026-08-10 the owner moved the reviewed Stockfish blue-Fishtest pool to the
 front of the queue, explicitly skipped SF-B01, stopped the inconclusive full
-Y007 retest, and continued with SF-B02. The older cross-project queue is
-retained below it.
+Y007 and SF-B02 tests, and continued with SF-B03. The older cross-project
+queue is retained below it.
 
 ## Promotion contract
 
@@ -50,8 +50,9 @@ retained below it.
 | ---: | --- | --- | --- |
 | stopped | `Y007` | Owner-requested stop at an inconclusive STC result; no baseline effect. | `docs/yaneuraou-port-log.md` |
 | skipped | `SF-B01` | Owner-requested stop at an inconclusive STC result; no baseline effect. | `docs/stockfish-blue-tests-2025-2026-plan.md` |
-| active | `SF-B02` | Remove the late TT prefetch after `do_move`; STC from v0.3.0 is active. | `docs/stockfish-blue-tests-2025-2026-plan.md` |
-| B003-B012 | `SF-B03` through `SF-B12` | Remaining Tier-A blue candidates, exactly one at a time in numeric order. | `docs/stockfish-blue-tests-2025-2026-plan.md` |
+| stopped | `SF-B02` | Owner-requested stop at an inconclusive STC result; no baseline effect. | `docs/stockfish-blue-tests-2025-2026-plan.md` |
+| active | `SF-B03` | Simplify the singular-beta PV term from `ttPv && !PvNode` to `ttPv`. | `docs/stockfish-blue-tests-2025-2026-plan.md` |
+| B004-B012 | `SF-B04` through `SF-B12` | Remaining Tier-A blue candidates, exactly one at a time in numeric order. | `docs/stockfish-blue-tests-2025-2026-plan.md` |
 | B013-B031 | `SF-B13` through `SF-B31` | Tier-B blue candidates in numeric order; run sibling SF-B31 only if SF-B30 fails. | `docs/stockfish-blue-tests-2025-2026-plan.md` |
 | B032-B033 | `SF-B32` through `SF-B33` | Tier-C blue candidates in numeric order. | `docs/stockfish-blue-tests-2025-2026-plan.md` |
 
@@ -69,6 +70,12 @@ owner's request between both boundaries. It is retired as `inconclusive` at
 8,238 games / 4,119 pairs, W/L/D `2829/2827/2582`, pentanomial
 `[15,729,2634,721,20]`, and LLR `-0.110296180`; crashes and time losses are
 zero. It has no baseline, source, tag, or release effect.
+
+SF-B02 run `6a79a8423272cca3362ea289` was stopped at the owner's request
+between both boundaries and retired as `inconclusive` at 1,860 games / 930
+pairs, W/L/D `629/660/571`, pentanomial `[3,172,614,135,6]`, and LLR
+`-0.444776368`; crashes and time losses are zero. It has no baseline, source,
+tag, or release effect.
 
 ## Deferred queue after the blue pool
 

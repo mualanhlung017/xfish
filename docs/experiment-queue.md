@@ -106,10 +106,15 @@ Terminal statistics are 13,878 games / 6,939 pairs, W/L/D
 source, tag, or release effect.
 
 SF-B14 is isolated from `v0.3.0-nnue-thp` as a one-line search-policy change.
-No Elo run may start with the retired Red-win `650..850` book. The replacement
-must be generated only by frozen Xfish v0.3.0 and reproduce Stockfish's exact
-UHO Lichess model-draw filter `480 < D < 520` before gameplay verification and
-STC begin.
+The replacement Xfish-generated book is frozen at 132,503 unique positions
+with exact UHO Lichess draw component `D=481..519`; its manifest and
+independent reconstruction audit pass. The 644-position gameplay gate passes
+on Windows and three Linux build modes. Live STC run
+[`6a7a5dc6bcdd59842df8ba5f`](http://192.168.100.7:6543/tests/view/6a7a5dc6bcdd59842df8ba5f)
+uses official pentanomial normalized-Elo `SPRT(0.0,2.0)` and 194 pinned
+physical cores across Windows, `.7`, `.8`, `.55`, and `.66`. SF-B14 remains
+uncommitted and cannot enter LTC or affect the baseline unless STC reaches the
+upper LLR boundary with a clean final audit.
 
 ## Deferred queue after the blue pool
 

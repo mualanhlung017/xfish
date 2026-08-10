@@ -449,7 +449,7 @@ disposition:
   (`active=0`, `pending=0`). SF-B13 has no baseline, source, tag, or release
   effect and does not authorize LTC.
 
-### SF-B14 - follow-PV-only quiet pruning (preparing)
+### SF-B14 - follow-PV-only quiet pruning (STC running)
 
 - The isolated source is
   [`96451ce9b605a07ac0a95207862780408bd0510a`](https://github.com/FauziAkram/Stockfish/commit/96451ce9b605a07ac0a95207862780408bd0510a),
@@ -472,10 +472,41 @@ disposition:
   `5efff1a3c17d57b7f13ca619baca0c9840e31ed9bdfa88d991015ff0396bb85f`.
   No NNUE architecture, evaluation, rule, move-generation, repetition, or move
   encoding code changes.
-- Elo is paused until the replacement Xfish-only opening corpus reproduces
-  Stockfish UHO Lichess's exact model-draw condition `480 < D < 520`. Then
-  native AVX2 Full-LTO PGO builds and the complete cross-platform gameplay
-  gate must pass before STC `SPRT(0.0,2.0)` can start.
+- Synthetic candidate revision
+  `d1e2451cf94fa66b4a953e80818127cb1c8ce1c9` binds the accepted baseline to
+  the exact patch hash. Native AVX2 Full-LTO PGO binaries have bench
+  signatures `2483430` (baseline) and `2409323` (candidate) on Windows,
+  Zen 2 Linux, and Broadwell Linux. Their candidate SHA-256 values are
+  `8c6ef2e2b3b3c6274b15fabcd3cf02d3c4ce302db8cefcae9e5e1e3a47d64784`
+  on Windows, `8c3248c2031c7b96f48874f5ddcafa5768177be3c7c659ae89363d404acd77c3`
+  on `.7/.8`, and
+  `e59a288a20634bdbe9489065a92cac7b89f11fe4002cceb47d0afd14fdadf3a5`
+  on `.55/.66`.
+- The 644-position gameplay gate passes on Windows, Zen 2 Linux, Broadwell
+  PGO Linux, and a Broadwell assertions-plus-UBSan build. Legal maps, perft,
+  NNUE semantics, static evaluations, rules, and all required baseline-
+  equivalence checks pass; UBSan stderr is empty. Report SHA-256 values are
+  `34f386797628d3495fc12e13f3ed282b79e77e116d41f88d4609a9061cead273`,
+  `30820673d9cd59de872ddc376c90fe301a4fed681471cdc3056c52be83f55137`,
+  `6cbf3032437acf90c3ba21dab5e215edcec2428f0e0c48fe7c1504d7281b7c80`,
+  and `708939d3ade57903b5a27f4a12bff982e813ff906943420a2294b2e40e3f985f`.
+- The replacement Xfish-only corpus is
+  `xfish-uho-3mvs-d48-52-v2.epd`, SHA-256
+  `7fe9ea92dd718f3a3706c8ce58de467272b5f3d67d532eec8220d4f030570e48`,
+  with 132,503 unique pairs and exact `D=481..519`. Its manifest and
+  independent audit both pass. A stopped same-binary calibration completed
+  486 games at `91/88/307`, pentanomial `[0,49,144,48,2]`, with zero crashes
+  and zero time losses.
+- Live STC run
+  [`6a7a5dc6bcdd59842df8ba5f`](http://192.168.100.7:6543/tests/view/6a7a5dc6bcdd59842df8ba5f)
+  uses `10+0.1`, Threads 1, Hash 16, seed
+  `xfish-uho-d48-52-v2-sf-b14-stc-20260811`, official pentanomial
+  normalized-Elo `SPRT(0.0,2.0)`, and bounds `+/-2.944438979`. Eleven
+  NUMA-pinned workers advertise 194 physical cores: Windows 10, `.7` 32,
+  `.8` 64, `.55` 44, and `.66` 44. The first six completed chunks (1,200
+  games / 600 unique pairs) independently pass exact artifact audits. LTC,
+  source commit, tag, release, and baseline promotion remain forbidden unless
+  STC reaches the upper boundary cleanly.
 
 ## Per-candidate protocol
 

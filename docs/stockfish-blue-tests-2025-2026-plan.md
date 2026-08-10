@@ -224,6 +224,24 @@ disposition:
   workers advertise 150 physical cores: Windows 10, `.7` 32, `.8` 64, and
   `.55` 44. LTC remains forbidden unless STC reaches the upper boundary and
   the complete integrity audit is clean.
+- The first three completed chunks were independently audited with
+  `scripts/audit-xfishtest-task.py` SHA-256
+  `16ec0b54e9331d8949889da84d677ed559c4112021765856ddb541d69de5efad`.
+  Tasks 0 and 1 on `.8` and task 2 on `.7` each pass all 100 paired openings /
+  200 games: contiguous opening offsets `0/100/200`, 100 unique FEN hashes,
+  exact revision/binary/NNUE identities, two color-reversed Xiangqi games per
+  pair, Hash 16, Threads 1, zero time losses, and 300 complete artifacts.
+  Recomputed W/L/D and pentanomial exactly match the server: task 0 is
+  `66/72/62` with `[1,19,65,15,0]`; task 1 is `72/70/58` with
+  `[0,17,65,17,1]`; task 2 is `68/65/67` with `[1,17,62,18,2]`. Audit-report
+  SHA-256 values are
+  `d025b47d861cd48733eb169ca8492d86c0d0acee1af7b9cb48707d410261f2c8`,
+  `b3d5ee8c2f955422c2d4e97a3a396051700e019ae523b9f6937876b7c16bca19`,
+  and `f8955cf92e25bb31139a275c04a06813ad4a5be0f9e251e1fda4cc753d05db40`;
+  their complete artifact-manifest hashes are respectively
+  `b9b39b231243036073dccca27483570ef52188b32f0cf7f9e0e07500947f03fa`,
+  `e25047fbcc57612ad0e12cc98135de70fd8cb9fc42eb31ed3a84e6e101ba59f7`,
+  and `e492b517f9a30775eb325e1eb71ed0c03de9238e38da5b51dcddd4d8faa87e4b`.
 
 ## Per-candidate protocol
 

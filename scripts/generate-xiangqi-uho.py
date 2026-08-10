@@ -10,7 +10,7 @@ The resulting positions are suitable for paired, color-reversed fishtest runs:
 * positions are taken after an even number of plies so Red is to move;
 * checked positions, malformed FENs, duplicates, mates, and one-move tactical
   positions are excluded;
-* the final Red win probability must be inside an inclusive WDL band;
+* one selected final WDL component must be inside an inclusive band;
 * inputs, parameters, intermediate paths, scores, counts, and hashes are saved
   for reproducibility and audit.
 
@@ -45,6 +45,7 @@ FEN_RE = re.compile(r"^Fen:\s+(.+?)\s*$")
 CHECKERS_RE = re.compile(r"^Checkers:\s*(.*?)\s*$")
 PIECE_SYMBOLS = frozenset("rnbakcpRNBAKCP")
 START_FEN = "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w - - 0 1"
+WDL_COMPONENT_INDEX = {"win": 0, "draw": 1, "loss": 2}
 
 
 class BookGenerationError(RuntimeError):
@@ -99,6 +100,32 @@ def probability_per_mille(value: str) -> int:
     if not 0 <= parsed <= 1000:
         raise argparse.ArgumentTypeError("must be between 0 and 1000")
     return parsed
+
+
+def selected_wdl(
+    wdl: Sequence[int], component: str, *, reverse_perspective: bool = False
+) -> int:
+    """Return a WDL component, optionally from the opponent's perspective."""
+    if component not in WDL_COMPONENT_INDEX:
+        raise BookGenerationError(f"unsupported WDL component: {component}")
+    index = WDL_COMPONENT_INDEX[component]
+    if reverse_perspective and index != 1:
+        index = 2 - index
+    return int(wdl[index])
+
+
+def normalize_wdl_arguments(args: argparse.Namespace) -> None:
+    """Resolve the current generic WDL CLI and the reproducibility-only v1 flags."""
+    legacy_min = args.wdl_win_min
+    legacy_max = args.wdl_win_max
+    if (legacy_min is None) != (legacy_max is None):
+        raise BookGenerationError(
+            "legacy --wdl-win-min and --wdl-win-max must be supplied together"
+        )
+    if legacy_min is not None:
+        args.wdl_component = "win"
+        args.wdl_min = legacy_min
+        args.wdl_max = legacy_max
 
 
 def expected_sha256(value: str) -> str:
@@ -475,10 +502,16 @@ def batched(values: Sequence[object], size: int) -> Iterable[Sequence[object]]:
         yield values[index : index + size]
 
 
-def generation_config(args: argparse.Namespace, engine_sha: str, network_sha: str) -> dict[str, object]:
+def generation_config(
+    args: argparse.Namespace,
+    engine_sha: str,
+    network_sha: str,
+    implementation_sha: str,
+) -> dict[str, object]:
     return {
-        "schema": 1,
+        "schema": 2,
         "generator": "scripts/generate-xiangqi-uho.py",
+        "generator_sha256": implementation_sha,
         "engine_sha256": engine_sha,
         "network_sha256": network_sha,
         "start_fen": START_FEN,
@@ -493,8 +526,9 @@ def generation_config(args: argparse.Namespace, engine_sha: str, network_sha: st
         "final_black_move_window_cp": args.final_black_move_window_cp,
         "final_black_wdl_margin": args.final_black_wdl_margin,
         "second_move_window_cp": args.second_move_window_cp,
-        "wdl_win_min": args.wdl_win_min,
-        "wdl_win_max": args.wdl_win_max,
+        "wdl_component": args.wdl_component,
+        "wdl_min": args.wdl_min,
+        "wdl_max": args.wdl_max,
         "seed": args.seed,
     }
 
@@ -560,11 +594,16 @@ def generate_tree(
                     if record.wdl is None:
                         continue
                     # Scores and WDL at this node are from Black's point of
-                    # view.  Black's modeled loss probability is therefore
-                    # Red's modeled win probability after the candidate move.
-                    lower = max(0, args.wdl_win_min - args.final_black_wdl_margin)
-                    upper = min(1000, args.wdl_win_max + args.final_black_wdl_margin)
-                    if not lower <= record.wdl[2] <= upper:
+                    # view, while the final book FEN has Red to move. Draw is
+                    # perspective-invariant; win and loss swap components.
+                    lower = max(0, args.wdl_min - args.final_black_wdl_margin)
+                    upper = min(1000, args.wdl_max + args.final_black_wdl_margin)
+                    probability = selected_wdl(
+                        record.wdl,
+                        args.wdl_component,
+                        reverse_perspective=True,
+                    )
+                    if not lower <= probability <= upper:
                         continue
                 seen.add(record.move)
                 children.append(item + (record.move,))
@@ -648,7 +687,7 @@ def score_positions(
     fens: Sequence[str],
     engine_pool: EnginePool,
     executor: concurrent.futures.ThreadPoolExecutor,
-) -> tuple[list[str], Counter[str], Counter[str]]:
+) -> tuple[list[str], Counter[str], dict[str, Counter[str]]]:
     output = args.output_dir / "scores.jsonl"
     existing = load_jsonl(output, "fen")
     unknown = set(existing) - set(fens)
@@ -669,8 +708,10 @@ def score_positions(
             reason = "mate_or_non_cp_score"
         elif records[0].wdl is None:
             reason = "missing_wdl"
-        elif not args.wdl_win_min <= records[0].wdl[0] <= args.wdl_win_max:
-            reason = "wdl_outside_band"
+        elif not args.wdl_min <= selected_wdl(
+            records[0].wdl, args.wdl_component
+        ) <= args.wdl_max:
+            reason = f"wdl_{args.wdl_component}_outside_band"
         elif records[0].score - records[1].score > args.second_move_window_cp:
             reason = "forced_or_one_move"
         return {
@@ -691,7 +732,11 @@ def score_positions(
     scores = load_jsonl(output, "fen")
     accepted: list[str] = []
     reasons: Counter[str] = Counter()
-    histogram: Counter[str] = Counter()
+    histograms: dict[str, Counter[str]] = {
+        "win": Counter(),
+        "draw": Counter(),
+        "loss": Counter(),
+    }
     for fen in fens:
         item = scores[fen]
         reason = str(item["reason"])
@@ -703,13 +748,15 @@ def score_positions(
         assert isinstance(best, dict)
         wdl = best["wdl"]
         assert isinstance(wdl, list)
-        win = int(wdl[0])
-        lower = (win // 25) * 25
-        histogram[f"{lower:03d}-{lower + 24:03d}"] += 1
-    return accepted, reasons, histogram
+        for component, value in zip(("win", "draw", "loss"), wdl):
+            width = 5 if component == "draw" else 25
+            lower = (int(value) // width) * width
+            histograms[component][f"{lower:03d}-{lower + width - 1:03d}"] += 1
+    return accepted, reasons, histograms
 
 
 def build_book(args: argparse.Namespace) -> dict[str, object]:
+    normalize_wdl_arguments(args)
     args.engine = args.engine.resolve()
     args.network = args.network.resolve()
     args.output_dir = args.output_dir.resolve()
@@ -717,10 +764,11 @@ def build_book(args: argparse.Namespace) -> dict[str, object]:
         raise BookGenerationError("xfish executable or NNUE network does not exist")
     if args.plies % 2:
         raise BookGenerationError("plies must be even so Red is to move in the book")
-    if args.wdl_win_min > args.wdl_win_max:
+    if args.wdl_min > args.wdl_max:
         raise BookGenerationError("WDL lower bound exceeds upper bound")
     engine_sha = sha256_file(args.engine)
     network_sha = sha256_file(args.network)
+    implementation_sha = sha256_file(Path(__file__).resolve())
     if engine_sha != args.engine_sha256:
         raise BookGenerationError(
             f"xfish SHA-256 mismatch: expected {args.engine_sha256}, got {engine_sha}"
@@ -731,7 +779,7 @@ def build_book(args: argparse.Namespace) -> dict[str, object]:
         )
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    config = generation_config(args, engine_sha, network_sha)
+    config = generation_config(args, engine_sha, network_sha, implementation_sha)
     ensure_configuration(args.output_dir / "generation-config.json", config)
 
     engine_pool = EnginePool(
@@ -744,7 +792,7 @@ def build_book(args: argparse.Namespace) -> dict[str, object]:
             fens, _provenance, position_counts = collect_positions(
                 args, paths, engine_pool, executor
             )
-            accepted, reasons, histogram = score_positions(
+            accepted, reasons, histograms = score_positions(
                 args, fens, engine_pool, executor
             )
         identities = engine_pool.identities()
@@ -756,7 +804,7 @@ def build_book(args: argparse.Namespace) -> dict[str, object]:
     book_sha = sha256_file(book_path)
     status = "passed" if len(accepted) >= args.minimum_positions else "insufficient"
     manifest = {
-        "schema": 1,
+        "schema": 2,
         "status": status,
         "created_utc": utc_now(),
         "elapsed_seconds": time.monotonic() - started,
@@ -773,6 +821,7 @@ def build_book(args: argparse.Namespace) -> dict[str, object]:
             "network": str(args.network),
             "network_sha256": network_sha,
             "implementation": "scripts/generate-xiangqi-uho.py",
+            "implementation_sha256": implementation_sha,
         },
         "parameters": config,
         "counts": {
@@ -782,7 +831,10 @@ def build_book(args: argparse.Namespace) -> dict[str, object]:
             "minimum_positions": args.minimum_positions,
         },
         "rejection_reasons": dict(sorted(reasons.items())),
-        "accepted_wdl_win_histogram": dict(sorted(histogram.items())),
+        "accepted_wdl_histograms": {
+            component: dict(sorted(histogram.items()))
+            for component, histogram in sorted(histograms.items())
+        },
         "artifacts": {
             "generation_config_sha256": sha256_file(
                 args.output_dir / "generation-config.json"
@@ -817,8 +869,8 @@ def parser() -> argparse.ArgumentParser:
     root.add_argument("--engine-sha256", type=expected_sha256, required=True)
     root.add_argument("--network-sha256", type=expected_sha256, required=True)
     root.add_argument("--output-dir", type=Path, required=True)
-    root.add_argument("--book-name", default="xfish-uho-3mvs-w65-85-v1.epd")
-    root.add_argument("--seed", default="xfish-uho-xiangqi-3mvs-w65-85-v1")
+    root.add_argument("--book-name", default="xfish-uho-3mvs-d48-52-v2.epd")
+    root.add_argument("--seed", default="xfish-uho-xiangqi-3mvs-d48-52-v2")
     root.add_argument("--plies", type=positive_int, default=6)
     root.add_argument("--workers", type=positive_int, default=1)
     root.add_argument("--hash-mb", type=positive_int, default=16)
@@ -834,9 +886,26 @@ def parser() -> argparse.ArgumentParser:
     )
     root.add_argument("--final-black-wdl-margin", type=nonnegative_int, default=100)
     root.add_argument("--second-move-window-cp", type=nonnegative_int, default=150)
-    root.add_argument("--wdl-win-min", type=probability_per_mille, default=650)
-    root.add_argument("--wdl-win-max", type=probability_per_mille, default=850)
-    root.add_argument("--minimum-positions", type=positive_int, default=100000)
+    root.add_argument(
+        "--wdl-component", choices=tuple(WDL_COMPONENT_INDEX), default="draw"
+    )
+    # Stockfish's UHO_Lichess_4852_v1 generator used `$15 > 480 && $15 < 520`.
+    # Inclusive integer bounds 481..519 reproduce that exact discrete filter.
+    root.add_argument("--wdl-min", type=probability_per_mille, default=481)
+    root.add_argument("--wdl-max", type=probability_per_mille, default=519)
+    root.add_argument(
+        "--wdl-win-min",
+        type=probability_per_mille,
+        default=None,
+        help=argparse.SUPPRESS,
+    )
+    root.add_argument(
+        "--wdl-win-max",
+        type=probability_per_mille,
+        default=None,
+        help=argparse.SUPPRESS,
+    )
+    root.add_argument("--minimum-positions", type=positive_int, default=50000)
     root.add_argument("--checkpoint-interval", type=positive_int, default=1000)
     root.add_argument("--uci-timeout-seconds", type=float, default=120.0)
     return root

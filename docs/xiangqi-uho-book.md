@@ -8,19 +8,21 @@ for new xfish Elo tests.  In the superseded Y015 STC attempt it produced a
 also smaller than the 50,000 pairs allowed by the 100,000-game SPRT safety cap.
 It remains preserved only for reproducing historical tests.
 
-Pikafish publicly documents random openings with a modeled win rate of
-65--85%, and its testing-data page reports that a Red-priority three-full-move
-corpus reduced self-play draws substantially compared with its old balanced
-book.  The exact current Pikafish attachment is not publicly downloadable with
-verifiable provenance, license, and hash.  We therefore generate an immutable
-Xiangqi corpus locally instead of copying a guessed or access-controlled file.
+The first Xfish UHO corpus followed Pikafish's public 65--85% modeled-win
+description. That is now retired for new Elo runs because its openings are too
+decisive. Stockfish's actual current Fishtest book is
+`UHO_Lichess_4852_v1.epd`: `4852` refers to the WDL model's *draw* component,
+not win probability. Its published construction command keeps positions only
+when `480 < D < 520`, and long-run Fishtest data reports about a 49.4% game draw
+rate. The replacement Xiangqi corpus must reproduce that discrete
+`D=481..519` filter.
 
 The owner explicitly requires xfish, not Fairy-Stockfish, to generate this
 book.  `scripts/generate-xiangqi-uho.py` consequently uses the grandfathered
 `v0.3.0-nnue-thp` xfish baseline for both the move tree and the authoritative
 WDL filter.  No existing EPD is an input.
 
-## Reproducible generation policy
+## Current v2 generation policy
 
 - Start from the standard Xiangqi initial position and generate exactly six
   plies (three full moves), leaving Red to move in every final FEN.
@@ -30,15 +32,13 @@ WDL filter.  No existing EPD is an input.
   reject the position if either scoring PV still has only a bound.  This makes
   a path independent of worker scheduling without treating a bound as an exact
   WDL estimate.
-- On Red plies retain at most six moves within 100 centipawns of xfish's best
-  move.  On the first two Black plies retain at most 16 moves within 300
-  centipawns.
-- On Black's third move inspect up to 48 moves within 800 centipawns.  Because
-  WDL is reported from Black's perspective at that node, Black's loss component
-  is Red's modeled win probability after the move; a broad margin around the
-  requested band is used only as a cheap prefilter.
+- Broaden the deterministic Red and Black MultiPV tree relative to v1 so the
+  narrow Stockfish-equivalent filter still yields at least 50,000 unique pairs.
+- On Black's third move, use the perspective-invariant WDL draw component only
+  as a broad cheap prefilter. The authoritative deeper final-FEN search keeps
+  exactly `481..519` per mille, matching Stockfish's strict `>480 && <520`.
 - Ask the same frozen xfish baseline to re-search every final FEN at the deeper
-  scoring budget.  Keep only Red win WDL `650..850` inclusive.
+  scoring budget. Record full win/draw/loss distributions in the manifest.
 - Reject checked positions, mates/non-centipawn scores, malformed 9x10 FENs,
   duplicate FENs, missing second moves, and positions where the second-best
   move is more than 150 centipawns behind.  This avoids forced one-move
@@ -47,7 +47,14 @@ WDL filter.  No existing EPD is an input.
   every path, FEN audit, score record, configuration, count, and artifact hash.
   A resumed run is rejected if any generation parameter or input hash differs.
 
-The full v1 command is:
+The generator defaults now encode the v2 draw filter and retain hidden legacy
+`--wdl-win-min/--wdl-win-max` flags solely to reproduce v1 in a fresh output
+directory. The final v2 command and artifact hashes are frozen after corpus
+generation and audit.
+
+## Historical v1 command and artifact
+
+The full retired v1 command was:
 
 ```text
 python3 scripts/generate-xiangqi-uho.py \
@@ -87,8 +94,6 @@ the v1 book.  The generator then gained exact-iteration selection, an explicit
 residual-bound rejection guard, and regression tests before clean generation
 restarted from the initial Xiangqi position.
 
-## Frozen v1 artifact
-
 The clean run completed in 2,599.37 seconds with status `passed`. It generated
 409,405 six-ply paths, rejected 2,266 checked leaves and 195,057 transpositions,
 then scored 212,082 unique non-check FENs. The final filter accepted 79,270
@@ -126,8 +131,9 @@ cap larger than two games per available position.  LTC must use the same book
 artifact as its accepted STC parent but a different seed.
 
 Each selected FEN is played as a color-reversed pair and contributes one
-pentanomial result.  A new Y015 STC starts at game zero after the v1 book is
-frozen and deployed identically to Windows, Ubuntu `.7`, `.8`, and `.55`.
+pentanomial result. No new candidate run may use v1; STC starts at game zero
+only after the v2 book is frozen and deployed identically to Windows and every
+Ubuntu worker.
 
 ## Primary references
 
@@ -136,3 +142,4 @@ frozen and deployed identically to Windows, Ubuntu `.7`, `.8`, and `.55`.
 - [Stockfish regression-test opening history](https://official-stockfish.github.io/docs/stockfish-wiki/Regression-Tests.html)
 - [Stockfish Fishtest/Fastchess paired-opening example](https://official-stockfish.github.io/docs/fishtest-wiki/Running-Fastchess.html)
 - [Official Stockfish opening-book repository](https://github.com/official-stockfish/books)
+- [UHO Lichess 4852 construction and validation](https://github.com/official-stockfish/books/pull/39)

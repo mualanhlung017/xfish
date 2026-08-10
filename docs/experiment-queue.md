@@ -7,8 +7,8 @@ research ledgers. Source-specific documents remain the technical specification
 for each experiment, but their local ordering does not override this file. On
 2026-08-10 the owner moved the reviewed Stockfish blue-Fishtest pool to the
 front of the queue, explicitly skipped SF-B01, stopped the inconclusive full
-Y007, SF-B02, and SF-B03 tests, and then reprioritized SF-B13 ahead of SF-B04.
-The older cross-project queue is retained below it.
+Y007, SF-B02, SF-B03, and SF-B13 tests, and then selected SF-B14 next. The
+older cross-project queue is retained below it.
 
 ## Promotion contract
 
@@ -41,8 +41,10 @@ The older cross-project queue is retained below it.
   colors, and worker manifests before advancing. Only an LTC upper crossing
   permits baseline promotion, commit, tag, release, and new Windows/Linux
   assets.
-- Capacity ceiling: Windows 10 cores, Ubuntu `.7` 32, Ubuntu `.8` 64, and
-  Ubuntu `.55` 44. Use native `.55` builds because its CPU family differs.
+- Capacity ceiling: Windows 10 cores, Ubuntu `.7` 32, Ubuntu `.8` 64, Ubuntu
+  `.55` 44, and Ubuntu `.66` 44: 194 physical cores total. Build independently
+  on `.55` and `.66` with native LLVM even though both currently report the
+  same Broadwell CPU family.
 
 ## Locked execution order
 
@@ -52,9 +54,10 @@ The older cross-project queue is retained below it.
 | skipped | `SF-B01` | Owner-requested stop at an inconclusive STC result; no baseline effect. | `docs/stockfish-blue-tests-2025-2026-plan.md` |
 | stopped | `SF-B02` | Owner-requested stop at an inconclusive STC result; no baseline effect. | `docs/stockfish-blue-tests-2025-2026-plan.md` |
 | stopped | `SF-B03` | Owner-requested stop at an inconclusive STC result; no baseline effect. | `docs/stockfish-blue-tests-2025-2026-plan.md` |
-| active | `SF-B13` | Apply the deep-TT LMR bonus only at cut nodes and collapse its coefficient. | `docs/stockfish-blue-tests-2025-2026-plan.md` |
-| B004-B012 | `SF-B04` through `SF-B12` | Deferred by owner while SF-B13 runs; resume exactly one at a time in numeric order. | `docs/stockfish-blue-tests-2025-2026-plan.md` |
-| B014-B031 | `SF-B14` through `SF-B31` | Remaining Tier-B blue candidates in numeric order; run sibling SF-B31 only if SF-B30 fails. | `docs/stockfish-blue-tests-2025-2026-plan.md` |
+| stopped | `SF-B13` | Owner-requested stop at an inconclusive STC result; no baseline effect. | `docs/stockfish-blue-tests-2025-2026-plan.md` |
+| active | `SF-B14` | Suppress the quiet-pruning block whenever the search follows the prior PV. | `docs/stockfish-blue-tests-2025-2026-plan.md` |
+| B004-B012 | `SF-B04` through `SF-B12` | Deferred by owner while SF-B14 runs; resume exactly one at a time in numeric order. | `docs/stockfish-blue-tests-2025-2026-plan.md` |
+| B015-B031 | `SF-B15` through `SF-B31` | Remaining Tier-B blue candidates in numeric order; run sibling SF-B31 only if SF-B30 fails. | `docs/stockfish-blue-tests-2025-2026-plan.md` |
 | B032-B033 | `SF-B32` through `SF-B33` | Tier-C blue candidates in numeric order. | `docs/stockfish-blue-tests-2025-2026-plan.md` |
 
 Every blue candidate starts from the latest accepted source. Initially that is
@@ -95,10 +98,18 @@ was discarded in full as `invalid` after a strict artifact audit exposed a
 benign but unacceptable variantfishtest stderr-close thread race. The harness
 fix passed unit, match, and 256-process teardown stress tests. Clean R2 run
 [`6a79c533e53e34859ff2d9c8`](http://192.168.100.7:6543/tests/view/6a79c533e53e34859ff2d9c8)
-uses a new opening seed and normalized-Elo `SPRT(0.0, 2.0)` on nine pinned
-workers / 150 physical cores. It cannot affect the baseline unless it reaches
-the STC upper boundary and then independently reaches the LTC
-`SPRT(0.5, 2.5)` upper boundary.
+was stopped at the owner's request and atomically retired as `inconclusive`.
+Terminal statistics are 13,878 games / 6,939 pairs, W/L/D
+`4772/4777/4329`, pentanomial `[39,1346,4174,1341,39]`, and LLR
+`-0.291852887`; crashes and time losses are zero, and server work is drained
+(`active=0`, `pending=0`). It does not authorize LTC and has no baseline,
+source, tag, or release effect.
+
+SF-B14 is isolated from `v0.3.0-nnue-thp` as a one-line search-policy change.
+No Elo run may start with the retired Red-win `650..850` book. The replacement
+must be generated only by frozen Xfish v0.3.0 and reproduce Stockfish's exact
+UHO Lichess model-draw filter `480 < D < 520` before gameplay verification and
+STC begin.
 
 ## Deferred queue after the blue pool
 

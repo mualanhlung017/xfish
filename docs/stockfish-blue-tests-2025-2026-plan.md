@@ -334,7 +334,7 @@ disposition:
   (`active=0`, `pending=0`). SF-B03 does not authorize LTC and has no baseline,
   source, tag, or release effect.
 
-### SF-B13 - restrict the deep-TT LMR bonus to cut nodes (active STC)
+### SF-B13 - restrict the deep-TT LMR bonus to cut nodes (stopped inconclusive)
 
 - At the owner's request SF-B13 was moved ahead of SF-B04. The accepted
   baseline remains `v0.3.0-nnue-thp` at
@@ -440,6 +440,42 @@ disposition:
   `03ef29f03b66b9c168066ce4a8dec6df296313a89770ca10dd7f6138e398e87b`,
   `d85184c6473088bf7837d4f77280daffbf6228ee85bc74bc8f02b4948c2927a4`,
   and `990a43cc469be67ab764941dc2506161d9432bbdd811c24d297a5813e9c79386`.
+- At the owner's request, R2 was atomically retired before either boundary as
+  `inconclusive` with reason
+  `owner-requested-stop-SF-B13-continue-SF-B14`. Terminal statistics are
+  13,878 games / 6,939 pairs, W/L/D `4772/4777/4329`, pentanomial
+  `[39,1346,4174,1341,39]`, and LLR `-0.291852887`. Crashes and time losses are
+  zero, all worker trees were stopped, and server work is drained
+  (`active=0`, `pending=0`). SF-B13 has no baseline, source, tag, or release
+  effect and does not authorize LTC.
+
+### SF-B14 - follow-PV-only quiet pruning (preparing)
+
+- The isolated source is
+  [`96451ce9b605a07ac0a95207862780408bd0510a`](https://github.com/FauziAkram/Stockfish/commit/96451ce9b605a07ac0a95207862780408bd0510a),
+  one addition and one deletion in `src/search.cpp`. It changes only
+  `else if (!ss->followPV || !PvNode)` to `else if (!ss->followPV)`, thereby
+  suppressing continuation-history/futility/SEE quiet pruning in a followed
+  non-PV line as well as in a followed PV line.
+- Upstream blue run
+  [`6a036b858d9bd4cd7cd68ece`](https://tests.stockfishchess.org/tests/view/6a036b858d9bd4cd7cd68ece)
+  accepted its non-regression gate after 26,272 games at LLR `2.946131`, W/L/D
+  `6807/6578/12887`, pentanomial `[55,2979,6852,3182,68]`, with zero crashes
+  and two time losses. Its bounds were `[-1.75,0.25]`, so this is candidate
+  evidence rather than proof of a positive Xfish gain.
+- The Xfish worktree starts at accepted baseline
+  `1699e6ba6df744f83951c66bfd5832647d65e41d` and contains exactly the same
+  one-line guard change. The normalized full-index patch SHA-256 is
+  `cf5b9329e092c736cfbb589ff30a460d623343e714523e8e331cd2d73ea96f7d`;
+  candidate `search.cpp` has git blob
+  `c8849f242162e958b8570ded0fc18034591a501c` and SHA-256
+  `5efff1a3c17d57b7f13ca619baca0c9840e31ed9bdfa88d991015ff0396bb85f`.
+  No NNUE architecture, evaluation, rule, move-generation, repetition, or move
+  encoding code changes.
+- Elo is paused until the replacement Xfish-only opening corpus reproduces
+  Stockfish UHO Lichess's exact model-draw condition `480 < D < 520`. Then
+  native AVX2 Full-LTO PGO builds and the complete cross-platform gameplay
+  gate must pass before STC `SPRT(0.0,2.0)` can start.
 
 ## Per-candidate protocol
 

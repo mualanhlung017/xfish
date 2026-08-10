@@ -250,6 +250,82 @@ disposition:
   both zero, and server work is drained (`active=0`, `pending=0`). SF-B02 does
   not authorize LTC and has no baseline, source, tag, or release effect.
 
+### SF-B03 - simplify the singular-beta PV term (active STC)
+
+- Accepted baseline remains `v0.3.0-nnue-thp` at
+  `1699e6ba6df744f83951c66bfd5832647d65e41d`. The isolated source is
+  [`22133a7241e8d4e83af8b7fc32aa7d9d8f4030a9`](https://github.com/kennethlee33/Stockfish/commit/22133a7241e8d4e83af8b7fc32aa7d9d8f4030a9),
+  which changes only the singular-beta boolean term from `ttPv && !PvNode` to
+  `ttPv`. Its upstream STC run
+  [`6795b410f6281b7d7b1869d2`](https://tests.stockfishchess.org/tests/view/6795b410f6281b7d7b1869d2)
+  accepted after 35,232 games at LLR `2.935250`, W/L/D
+  `9289/9062/16881`, pentanomial `[132,4151,8854,4316,163]`; the independent
+  LTC run
+  [`6795b840f6281b7d7b1869db`](https://tests.stockfishchess.org/tests/view/6795b840f6281b7d7b1869db)
+  accepted after 22,788 games at LLR `2.941036`, W/L/D
+  `5822/5600/11366`, pentanomial `[17,2451,6240,2665,21]`. Both reported zero
+  crashes and zero time losses under upstream's blue non-regression bounds.
+- The xfish adaptation preserves its tuned `44`, `72`, and `/69` constants
+  and changes only `(ss->ttPv && !PvNode)` to `ss->ttPv` in `src/search.cpp`.
+  Normalized full-index patch SHA-256 is
+  `1571b9e7bbc133a110ceb260110425349a2e87a60a28db5f30e0399dcc0fb187`;
+  the frozen synthetic candidate revision is
+  `d1a84976f181a1f243198450fe686c1e861f4f13`. Candidate `search.cpp` has git
+  blob `9b74f94335eb22a49f4a738a67c9826b226cf602` and SHA-256
+  `8eeaabc8006b0cbfd02fced79f5f8ccfb1048c7eace6133c87638cb72a1a3e48`
+  on Windows, `.7`, and `.55`.
+- Native AVX2 Full-LTO PGO builds have bench signature `2094724`. Candidate
+  SHA-256 is
+  `c8a5f39f580dcbc41b8bc9e13d9da027ef316b14d54934914eb6d7ac18ef83f8`
+  for Windows clang-cl 19,
+  `3f7ac4a12e99d16fd7564007eef48ec3b17b7d0a0306889f32c7e5def9e6ff29`
+  for Ubuntu `.7/.8` clang 22.1.8, and
+  `69e9a1bffab543fc311249dc0bc775a6fdcee6f309f5d2508d687462ce52f33d`
+  for the independently built `.55` clang 22.1.2 CPU family. The `.55`
+  assertions + libstdc++ debug + UBSan binary has SHA-256
+  `b135d47fba1d773ce49f7636ae613006a54adf357b8cbe67eef549c890802684`.
+- Before Elo, verifier SHA-256
+  `5b3b00019d2266b401ae20c131fe7f7743bae42105ae44226340663194ff4b5e`
+  passed `644/644` cases with zero failures on Windows PGO, Ubuntu `.7` PGO,
+  `.55` native PGO, and `.55` assertions + UBSan. Report SHA-256 values are
+  respectively
+  `603986854b883604423417cb93702bf85637c74e6e07662c6f5c765507879a18`,
+  `387ca7df3534a0e8535114ab6e76424a9fe270c92241feef148cba76f6b5e7de`,
+  `f5db898247a27f30a78da1868f49e9f7817f6d4091f837eb6e4a89861d45c0d8`,
+  and `e0a91bf150e3b5113cbbc6db0e59f105e6e13e3be7924c59cdd1ae2647a09706`.
+  All legal maps, depth-3 perft, repetition cases, raw/final NNUE values, and
+  the `62083,1024,32,32,1` network architecture match both v1.0.0 and the
+  accepted baseline. The strength patch changes 24 of 67 deterministic
+  depth-7 search records, including seven best moves; every reported move is
+  legal, and the same changes reproduce on all four binaries.
+- STC run
+  [`6a79b32fbbd5154d9e7e405d`](http://192.168.100.7:6543/tests/view/6a79b32fbbd5154d9e7e405d)
+  started only after verification. It uses pentanomial normalized-Elo
+  `SPRT(0.0, 2.0)`, `alpha=beta=0.05`, bounds `+/-2.944438979`, `10+0.1`,
+  Threads `1`, Hash `16`, 200-game chunks, Xfish UHO v1 book SHA-256
+  `5ede082489580fb6aeb8c06c3eb34f72a916c5dbb7ee621b350b835dbdc48b0f`,
+  and seed `xfish-uho-3mvs-w65-85-v1-sf-b03-stc-20260810`. Nine pinned
+  workers advertise 150 physical cores: Windows 10, `.7` 32, `.8` 64, and
+  `.55` 44. LTC remains forbidden unless STC reaches the upper boundary and
+  the complete integrity audit is clean.
+- The first three completed chunks were independently audited with
+  `scripts/audit-xfishtest-task.py` SHA-256
+  `16ec0b54e9331d8949889da84d677ed559c4112021765856ddb541d69de5efad`.
+  Tasks 1, 4, and 6 pass all 100 paired openings / 200 games at their exact
+  opening offsets `100/400/600`: 100 unique FEN hashes per task, exact
+  revision/binary/NNUE identities, two color-reversed Xiangqi games per pair,
+  Hash 16, Threads 1, zero time losses, and 300 complete artifacts. Recomputed
+  W/L/D and pentanomial exactly match the server: task 1 is `65/69/66` with
+  `[0,22,60,18,0]`; task 4 is `69/71/60` with `[0,24,54,22,0]`; task 6 is
+  `64/68/68` with `[0,26,52,22,0]`. Audit-report SHA-256 values are
+  `26f00393f0882c8ed1e9a240d5b65a563cc45031a3cc5fcc6f1307f50fe89421`,
+  `ca08df1eeb8ef6b0d20955597bce3e29357d0b7477eaa7bfec919679c9c0b957`,
+  and `e9285b5070f64155f4c273784505dbe590bb1d5457322be511fd14df93b9658a`;
+  their complete artifact-manifest hashes are respectively
+  `6646e53cbd9519278080bbf3570df0fa59f55de132fef35f106de722bf285307`,
+  `20d33e3b241cfbdd6fa870f54b70d01fbf7851b16425c3d2798617a279f6dc4c`,
+  and `0908c956357cecb01214d24349261bd1db3e9bba2dd1ef83d555b706ef9a07a7`.
+
 ## Per-candidate protocol
 
 1. Use one ignored worktree based on the latest accepted baseline and apply

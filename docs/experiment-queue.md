@@ -77,6 +77,17 @@ pairs, W/L/D `629/660/571`, pentanomial `[3,172,614,135,6]`, and LLR
 `-0.444776368`; crashes and time losses are zero. It has no baseline, source,
 tag, or release effect.
 
+SF-B03 passed the full pre-Elo gameplay audit on Windows PGO, Ubuntu PGO,
+Xeon-native PGO, and Xeon assertions + UBSan: all four reports contain 644
+cases, zero failures, and exact legal-map, perft, repetition, raw/final NNUE,
+and network-architecture agreement. Its active STC run is
+[`6a79b32fbbd5154d9e7e405d`](http://192.168.100.7:6543/tests/view/6a79b32fbbd5154d9e7e405d),
+using normalized-Elo `SPRT(0.0, 2.0)` on nine pinned workers / 150 physical
+cores. The first three completed 200-game chunks passed independent artifact
+audits with zero errors. It cannot affect the baseline unless it reaches the
+STC upper boundary and then independently reaches the LTC `SPRT(0.5, 2.5)`
+upper boundary.
+
 ## Deferred queue after the blue pool
 
 | Order | Candidate | Isolated experiment | Source record |

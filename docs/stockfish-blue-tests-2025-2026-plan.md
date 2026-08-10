@@ -31,12 +31,13 @@ chess-specific changes.
 
 ## Execution order
 
-Finish the active Y015 STC/LTC chain first. Then execute existing candidates
-SF-X01 and SF-X02 from `docs/stockfish-fishtest-2025-2026-plan.md`. After those
-are terminal, process the following blue candidates one at a time. A later row
-is always rebased on the latest accepted baseline; if an earlier acceptance
-makes a row identical or structurally obsolete, record it as superseded and
-skip it.
+The authoritative inter-project order is `docs/experiment-queue.md`. It keeps
+the active Y015 chain and the higher-priority YaneuraOu, Cfish, and existing
+Stockfish candidates ahead of this blue pool. When this pool's turn is reached,
+process its rows one at a time in the Tier A, Tier B, then Tier C order below.
+A later row is always rebased on the latest accepted baseline; if an earlier
+acceptance makes a row identical or structurally obsolete, record it as
+superseded and skip it.
 
 ### Tier A: clean, portable search or performance changes
 

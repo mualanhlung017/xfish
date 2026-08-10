@@ -3,7 +3,9 @@
 This log tracks ideas audited from the official YaneuraOu Shogi engine and
 tested as isolated xfish candidates. The reference checkout is pinned at
 `33ccf1f907eb7184889fa23051243f81ab0bf973` (2026-08-05); the official remote
-`master` was rechecked on 2026-08-09 and still pointed to this commit.
+`master` was rechecked on 2026-08-10 and still pointed to this commit. The
+2025-2026 upstream test-history audit is recorded separately in
+`docs/yaneuraou-test-evidence-2025-2026.md`.
 
 ## Safety and acceptance policy
 
@@ -36,12 +38,18 @@ baseline and follows the same STC-to-LTC sequence.
 
 1. `Y004` - corrected precomputed checker update fast path (next candidate).
 2. `Y007-R1` - destination-only split-half bitboard iteration.
-3. `Y007` - broader move-generation split-half iteration.
-4. `Y011` - directional SEE ray refresh.
-5. `Y014` - shared rook/cannon magic occupancy index.
-6. `Y013-R` - direct half-ray rook attacks.
-7. `Y013-R2` - compact rank table plus direct file rays.
-8. `Y013-R3` - packed rook ray lengths.
+3. `Y009` - POPCNT `more_than_one()`.
+4. `Y012` - split-word global bitboard pop.
+5. `Y007` - broader move-generation split-half iteration.
+6. `Y011` - directional SEE ray refresh.
+7. `Y014` - shared rook/cannon magic occupancy index.
+8. `Y013-R` - direct half-ray rook attacks.
+9. `Y013-R2` - compact rank table plus direct file rays.
+10. `Y013-R3` - packed rook ray lengths.
+
+This source-local order is incorporated into the authoritative cross-project
+order in `docs/experiment-queue.md`; that master queue decides which family is
+run next after Y015.
 
 `Y003` is not reopened: its later audit found a stale/uninitialized
 `StateInfo::blockersForKing` source, so it is unsafe independently of NPS and
@@ -468,7 +476,8 @@ point estimate. Already-present/audit-only ideas are likewise not candidates.
   is used throughout move generation, threat maintenance, legality, and SEE.
   It remains only a queued design until Y007-R1 is decided. It must preserve
   ascending square order, pass assertions and strict search-identical gameplay,
-  and satisfy the same cross-platform 15-pair NPS gate before Elo testing.
+  then pass the standard STC `SPRT(0.0, 2.0)` and independent-seed LTC
+  `SPRT(0.5, 2.5)` sequence. Comparative NPS is not run or used as a gate.
 
 ## Candidate Y013-R - Xiangqi-native half-ray rook attacks
 

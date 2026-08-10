@@ -59,6 +59,54 @@ The generator defaults now encode the v2 draw filter and retain hidden legacy
 directory. The final v2 command and artifact hashes are frozen after corpus
 generation and audit.
 
+## Frozen v2 corpus
+
+The clean v2 run completed in 29,455.09 seconds with status `passed`. Its
+reproducible command was:
+
+```text
+python3 scripts/generate-xiangqi-uho.py \
+  --engine /home/gr17/services/xfishtest-worker/engines/xfish-v0.3.0-xeon-pgo \
+  --network /home/gr17/services/xfishtest-worker/engines/pikafish.nnue \
+  --engine-sha256 4c7220a24b6316b437816bf3fe82f3f8de1b11d3998730da1ffbd0ec7fd1f3ac \
+  --network-sha256 3cd15292bf8c979884262f57fc723959fc0dea43b4d8d544f88db5ceb2479e24 \
+  --output-dir /home/gr17/services/xfish-bookgen/xfish-uho-3mvs-d48-52-v2 \
+  --book-name xfish-uho-3mvs-d48-52-v2.epd \
+  --seed xfish-uho-xiangqi-3mvs-d48-52-v2 \
+  --plies 6 --workers 44 \
+  --generation-nodes 50000 --scoring-nodes 100000 \
+  --red-branch 12 --black-branch 32 --final-black-branch 96 \
+  --red-move-window-cp 200 --black-move-window-cp 500 \
+  --final-black-move-window-cp 1200 --final-black-wdl-margin 100 \
+  --second-move-window-cp 150 \
+  --wdl-component draw --wdl-min 481 --wdl-max 519 \
+  --minimum-positions 50000
+```
+
+It enumerated 6,107,083 six-ply paths and 1,608,289 unique non-check final
+FENs. The exact draw-band and second-move filters accepted 132,503 positions,
+rejected 1,475,599 positions outside `D=481..519`, and rejected 187 forced or
+one-move starts. The independent streaming audit reconstructed the book from
+all source records and passed with the same counts and WDL histograms.
+
+- Book SHA-256:
+  `7fe9ea92dd718f3a3706c8ce58de467272b5f3d67d532eec8220d4f030570e48`
+- Manifest SHA-256:
+  `ccb4953b259a44ced8ce0e84d2ab7d267b278d140350b74223e5fed7df76115a`
+- Independent audit report SHA-256:
+  `8ceef109ab85b5bd191b0dd2da0de7ffc729152c9e249123194c258f16f24354`
+- Scoring records SHA-256:
+  `ee8ae46fdbf150e820af369ec705cf14c6d398a1510f714900b0225a24ae7526`
+- Unique-pair capacity: 132,503 pairs, or 265,006 games.
+
+All three deployed artifacts are stored under `tools/xfishtest/books/` and
+match byte-for-byte on Windows and Ubuntu workers `.7`, `.8`, `.55`, and
+`.66`. A same-binary STC calibration was stopped after 486 completed games:
+`91-88-307` (63.17% draws), pentanomial `[0,49,144,48,2]`, with zero crashes
+and zero time losses. This confirms materially less opening bias than the
+retired decisive v1 corpus while preserving enough non-draw outcomes for
+pentanomial SPRT.
+
 ## Historical v1 command and artifact
 
 The full retired v1 command was:

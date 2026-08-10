@@ -1,0 +1,89 @@
+{
+  "accepted_wdl_histograms": {
+    "draw": {
+      "480-484": 13881,
+      "485-489": 14497,
+      "490-494": 21610,
+      "495-499": 14648,
+      "500-504": 14994,
+      "505-509": 15406,
+      "510-514": 22370,
+      "515-519": 15097
+    },
+    "loss": {
+      "000-024": 132178,
+      "475-499": 187,
+      "500-524": 138
+    },
+    "win": {
+      "000-024": 325,
+      "475-499": 67680,
+      "500-524": 64498
+    }
+  },
+  "artifacts": {
+    "candidates_epd_sha256": "bfead6e5abaa1b1d47154925ab7a6257d9e207ad75459bfa5c3ed9c49569b76d",
+    "final_paths_sha256": "d95029e51903a2eeb916e1038880d3979a272857a58a59f3249e3131f28db6f3",
+    "generation_config_sha256": "c54c71a0fdcb2e19d7903b0f1818e1cc3a0cc38b8025b5245051964749719da8",
+    "positions_jsonl_sha256": "c95800f7d2ef0bf50e3b75c52f0b623a571672402c62da19c49a36f32025f396",
+    "scores_jsonl_sha256": "ee8ae46fdbf150e820af369ec705cf14c6d398a1510f714900b0225a24ae7526"
+  },
+  "book": {
+    "name": "xfish-uho-3mvs-d48-52-v2.epd",
+    "path": "/home/gr17/services/xfish-bookgen/xfish-uho-3mvs-d48-52-v2/xfish-uho-3mvs-d48-52-v2.epd",
+    "positions": 132503,
+    "sha256": "7fe9ea92dd718f3a3706c8ce58de467272b5f3d67d532eec8220d4f030570e48"
+  },
+  "counts": {
+    "accepted_fens": 132503,
+    "checked_positions": 31409,
+    "duplicate_fens": 4467385,
+    "leaf_paths": 6107083,
+    "minimum_positions": 50000,
+    "scored_fens": 1608289,
+    "unique_noncheck_fens": 1608289
+  },
+  "created_utc": "2026-08-10T22:46:47.037342+00:00",
+  "elapsed_seconds": 29455.089907767004,
+  "generator": {
+    "engine": "/home/gr17/services/xfishtest-worker/engines/xfish-v0.3.0-xeon-pgo",
+    "engine_identification": [
+      "Pikafish dev-20260808-1699e6ba"
+    ],
+    "engine_sha256": "4c7220a24b6316b437816bf3fe82f3f8de1b11d3998730da1ffbd0ec7fd1f3ac",
+    "implementation": "scripts/generate-xiangqi-uho.py",
+    "implementation_sha256": "54c5ae85de9d999ebb8a92cbfef4760beb2334c80f5c16a5d87cdfe81db96321",
+    "network": "/home/gr17/services/xfishtest-worker/engines/pikafish.nnue",
+    "network_sha256": "3cd15292bf8c979884262f57fc723959fc0dea43b4d8d544f88db5ceb2479e24"
+  },
+  "parameters": {
+    "black_branch": 32,
+    "black_move_window_cp": 500,
+    "engine_sha256": "4c7220a24b6316b437816bf3fe82f3f8de1b11d3998730da1ffbd0ec7fd1f3ac",
+    "final_black_branch": 96,
+    "final_black_move_window_cp": 1200,
+    "final_black_wdl_margin": 100,
+    "generation_nodes": 50000,
+    "generator": "scripts/generate-xiangqi-uho.py",
+    "generator_sha256": "54c5ae85de9d999ebb8a92cbfef4760beb2334c80f5c16a5d87cdfe81db96321",
+    "network_sha256": "3cd15292bf8c979884262f57fc723959fc0dea43b4d8d544f88db5ceb2479e24",
+    "plies": 6,
+    "red_branch": 12,
+    "red_move_window_cp": 200,
+    "schema": 2,
+    "scoring_nodes": 100000,
+    "second_move_window_cp": 150,
+    "seed": "xfish-uho-xiangqi-3mvs-d48-52-v2",
+    "start_fen": "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w - - 0 1",
+    "wdl_component": "draw",
+    "wdl_max": 519,
+    "wdl_min": 481
+  },
+  "rejection_reasons": {
+    "accepted": 132503,
+    "forced_or_one_move": 187,
+    "wdl_draw_outside_band": 1475599
+  },
+  "schema": 2,
+  "status": "passed"
+}

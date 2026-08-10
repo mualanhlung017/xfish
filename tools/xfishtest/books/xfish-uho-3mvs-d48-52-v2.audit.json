@@ -1,0 +1,48 @@
+{
+  "accepted_wdl_histograms": {
+    "draw": {
+      "480-484": 13881,
+      "485-489": 14497,
+      "490-494": 21610,
+      "495-499": 14648,
+      "500-504": 14994,
+      "505-509": 15406,
+      "510-514": 22370,
+      "515-519": 15097
+    },
+    "loss": {
+      "000-024": 132178,
+      "475-499": 187,
+      "500-524": 138
+    },
+    "win": {
+      "000-024": 325,
+      "475-499": 67680,
+      "500-524": 64498
+    }
+  },
+  "book": "xfish-uho-3mvs-d48-52-v2.epd",
+  "book_sha256": "7fe9ea92dd718f3a3706c8ce58de467272b5f3d67d532eec8220d4f030570e48",
+  "candidates": 1608289,
+  "counts": {
+    "accepted_fens": 132503,
+    "checked_positions": 31409,
+    "duplicate_fens": 4467385,
+    "leaf_paths": 6107083,
+    "minimum_positions": 50000,
+    "scored_fens": 1608289,
+    "unique_noncheck_fens": 1608289
+  },
+  "manifest_sha256": "ccb4953b259a44ced8ce0e84d2ab7d267b278d140350b74223e5fed7df76115a",
+  "output_dir": "/home/gr17/services/xfish-bookgen/xfish-uho-3mvs-d48-52-v2",
+  "positions": 132503,
+  "rejection_reasons": {
+    "accepted": 132503,
+    "forced_or_one_move": 187,
+    "wdl_draw_outside_band": 1475599
+  },
+  "status": "passed",
+  "wdl_component": "draw",
+  "wdl_max": 519,
+  "wdl_min": 481
+}

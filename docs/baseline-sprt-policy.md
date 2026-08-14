@@ -43,8 +43,10 @@ policy applies to every baseline promotion after v0.3.0.
 | `v0.3.0-nnue-thp` | owner-approved pre-policy baseline | grandfathered | retained |
 | `v0.4.0-king-square-cache` | 2,000/10,000 fixed STC games; final `+1.11 +/- 1.80` Elo | no STC LLR; no LTC run | revoked |
 | `v0.5.0-checker-fastpath` | 2,000/10,000 fixed STC games; final `+0.69 +/- 1.73` Elo | no STC LLR; no LTC run | revoked |
+| `v0.4.0` (`sf-de948f0-xq1`) | accepted STC: 44,860 games, LLR `2.95527` | STC upper bound crossed; no LTC run | accepted by explicit owner exception on 2026-08-14 |
 
-The accepted baseline therefore rolls back to `v0.3.0-nnue-thp` at commit
+At the 2026-08-10 retrospective audit, the accepted baseline therefore rolled
+back to `v0.3.0-nnue-thp` at commit
 `1699e6ba6df744f83951c66bfd5832647d65e41d`. At the owner's request, the
 public GitHub releases and tag refs for the revoked v0.4.0 and v0.5.0
 baselines were deleted on 2026-08-10. Their source commits remain in the
@@ -52,3 +54,14 @@ repository history and their test evidence remains available for audit; they
 must not be selected as accepted baselines. The source rollback restores
 `src/position.h` and `src/position.cpp` to v0.3.0 while retaining that
 baseline's Linux THP path in `src/shm.h`.
+
+## Owner-authorized v0.4.0 exception
+
+On 2026-08-14, the owner explicitly authorized `sf-de948f0-xq1` as the new
+`v0.4.0` baseline after it passed its configured STC gate. The terminal run
+crossed the upper boundary with LLR `2.95527` in 44,860 games. No LTC was run
+for this promotion, so it is an explicit one-time exception to the two-stage
+policy above rather than evidence that the LTC gate passed. Full machine-
+readable evidence is committed in
+`docs/evidence/v0.4.0-sf-de948f0-xq1-stc.json`, and the human-readable test
+record is in `docs/baseline-v0.4.0-sf-de948f0-xq1.md`.

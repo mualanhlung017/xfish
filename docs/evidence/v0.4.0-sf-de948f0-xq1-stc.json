@@ -1,0 +1,74 @@
+{
+  "schema": "xfish.xfishtest.evidence.v1",
+  "candidate": "sf-de948f0-xq1",
+  "baseline_before": "v0.3.0-nnue-thp",
+  "baseline_after": "v0.4.0",
+  "run": {
+    "id": "6a7ecb7d4d58bbbdcb4e32e0",
+    "url": "http://192.168.100.7:6543/tests/view/6a7ecb7d4d58bbbdcb4e32e0",
+    "state": "accepted",
+    "finished": true,
+    "games": 44860,
+    "wins": 11729,
+    "losses": 11531,
+    "draws": 21600,
+    "pentanomial": [53, 4675, 12862, 4701, 139],
+    "llr": 2.9552727429174466,
+    "llr_lower_bound": -2.9444389791664403,
+    "llr_upper_bound": 2.9444389791664403,
+    "sprt_elo0": -1.75,
+    "sprt_elo1": 0.25,
+    "elo_model": "normalized",
+    "alpha": 0.05,
+    "beta": 0.05,
+    "time_control": "10+0.1",
+    "threads": 1,
+    "hash_mb": 16,
+    "crashes": 0,
+    "time_losses": 0,
+    "missing_results": 0,
+    "active_tasks": 0,
+    "pending_tasks": 0
+  },
+  "llr_history": {
+    "url": "http://192.168.100.7:6543/tests/view/6a7ecb7d4d58bbbdcb4e32e0/llr_history",
+    "points": 534,
+    "sample_interval_seconds": 30,
+    "history_complete": true,
+    "first": {"timestamp": "2026-08-14T08:02:05Z", "llr": 0.0, "games": 0, "pairs": 0},
+    "last": {"timestamp": "2026-08-14T12:31:11Z", "llr": 2.9552727429174466, "games": 44860, "pairs": 22430},
+    "response_bytes": 52099,
+    "response_sha256": "af658a3ff9585eb9349ce5877d1f3a0f54b1ca5e6b9a1b3d726f0ca6f50a4a84"
+  },
+  "build": {
+    "bench": 2270229,
+    "source_diff_id": "91685dbba62e3df451bc604aed061bd96bc43406",
+    "nnue_sha256": "3cd15292bf8c979884262f57fc723959fc0dea43b4d8d544f88db5ceb2479e24",
+    "book_sha256": "10c9e21d9a0e8ae2a6711eff0512e29ac99cab0c79e4e233a22377472062409f",
+    "artifacts_sha256": {
+      "windows_clang_pgo_avx2": "9cf3fb848a732cff3de27374fa0729c9e2b52b7f9219fadbe53cd3738ed260f6",
+      "linux_zen2_llvm22_pgo_avx2": "651fd3e950e8a97d975a1615b773807cd64c609c780ce6acffa99589a2fb0d8b",
+      "linux_broadwell_u55_llvm22_pgo_avx2": "c46fe2592709733cd0d7ec9acc9c0b4326b5582671af39b362691a8d5a5f4981",
+      "linux_broadwell_u66_llvm22_pgo_avx2": "4292a81cafc3fe7aaae37f55310b19b1a91b80567a921cfe32fda01580ff40b6"
+    }
+  },
+  "verification": {
+    "cases": 2576,
+    "failures": 0,
+    "intentional_final_eval_differences_per_platform": 630,
+    "raw_nnue_rules_movegen_exact": true,
+    "deterministic_bad_move_regressions": 0,
+    "reports_sha256": {
+      "windows": "409564552b2dafc7e7c99124153c8637c089a0b0e65368ebd5d733df33276043",
+      "linux_zen2": "92090c5553810fcb4884182d8ed6fe5c1bec70be7af0631eee7e5bb8f0a9be08",
+      "linux_broadwell_u55": "685f85a3d088cebf8aec7f44c48f13048b0b63175b9a8760baac6352d6102616",
+      "linux_broadwell_u66": "4d9ef70c008e5e1acc682d2a912e0fc97fd16aaac38e23c62c68ab87d4a93a75",
+      "forensic_ledger": "86aa584273528c5add2f2239296a7b3712a5d21cdcadfc6fb37e120c41a0fa92"
+    }
+  },
+  "promotion": {
+    "owner_authorized": true,
+    "ltc_run": false,
+    "policy_exception": "Owner explicitly authorized v0.4.0 promotion after the accepted STC run."
+  }
+}

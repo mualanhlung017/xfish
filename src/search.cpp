@@ -26,6 +26,9 @@
 #include <cstdint>
 #include <cstdlib>
 #include <initializer_list>
+#ifdef XFISH_ASPIRATION_PROFILE
+#include <sstream>
+#endif
 #include <string>
 #include <utility>
 
@@ -57,6 +60,141 @@ constexpr u64 NODES_LIMIT_OUTPUT = 10'000'000;
 
 constexpr int SEARCHEDLIST_CAPACITY = 32;
 using SearchedList                  = ValueList<Move, SEARCHEDLIST_CAPACITY>;
+
+// Aspiration-window constants fitted on 500 complete Xiangqi games and then
+// selected with short- and long-budget full-history measurements. The
+// fixed-point scale keeps the stddev and score contributions deterministic.
+#ifndef XFISH_ASP_INITIAL_BASE
+#define XFISH_ASP_INITIAL_BASE 8
+#endif
+#ifndef XFISH_ASP_INITIAL_STD_SCALE
+#define XFISH_ASP_INITIAL_STD_SCALE 32768
+#endif
+#ifndef XFISH_ASP_INITIAL_AVG_SCALE
+#define XFISH_ASP_INITIAL_AVG_SCALE 1024
+#endif
+#ifndef XFISH_ASP_INITIAL_CAP
+#define XFISH_ASP_INITIAL_CAP 2048
+#endif
+#ifndef XFISH_ASP_GROWTH_BASE
+#define XFISH_ASP_GROWTH_BASE 20
+#endif
+#ifndef XFISH_ASP_GROWTH_STD_SCALE
+#define XFISH_ASP_GROWTH_STD_SCALE 1024
+#endif
+#ifndef XFISH_ASP_GROWTH_AVG_SCALE
+#define XFISH_ASP_GROWTH_AVG_SCALE 1024
+#endif
+#ifndef XFISH_ASP_GROWTH_CAP
+#define XFISH_ASP_GROWTH_CAP 25
+#endif
+#ifndef XFISH_ASP_GROWTH_RATE
+#define XFISH_ASP_GROWTH_RATE 47
+#endif
+#ifndef XFISH_ASP_USE_LEGACY_GROWTH
+#define XFISH_ASP_USE_LEGACY_GROWTH 0
+#endif
+
+constexpr i64 AspirationScale             = 65536;
+constexpr int AspirationInitialBase       = XFISH_ASP_INITIAL_BASE;
+constexpr int AspirationInitialStdScale   = XFISH_ASP_INITIAL_STD_SCALE;
+constexpr int AspirationInitialAvgScale   = XFISH_ASP_INITIAL_AVG_SCALE;
+constexpr int AspirationInitialCap        = XFISH_ASP_INITIAL_CAP;
+constexpr int AspirationGrowthBase        = XFISH_ASP_GROWTH_BASE;
+constexpr int AspirationGrowthStdScale    = XFISH_ASP_GROWTH_STD_SCALE;
+constexpr int AspirationGrowthAvgScale    = XFISH_ASP_GROWTH_AVG_SCALE;
+constexpr int AspirationGrowthCap         = XFISH_ASP_GROWTH_CAP;
+constexpr int AspirationGrowthRate        = XFISH_ASP_GROWTH_RATE;
+constexpr int AspirationScoreSampleCap    = 10000;
+
+u32 integer_sqrt(u32 value) {
+    u32 result = 0;
+    for (u32 bit = 1U << 30; bit; bit >>= 2)
+    {
+        if (value >= result + bit)
+        {
+            value -= result + bit;
+            result = (result >> 1) + bit;
+        }
+        else
+            result >>= 1;
+    }
+    return result;
+}
+
+#ifdef XFISH_ASPIRATION_PROFILE
+
+struct AspirationAttemptProfile {
+    int alpha = 0, beta = 0, delta = 0, adjustedDepth = 0;
+    int failedHighCountBefore = 0, bestValue = 0, outcome = 0;
+    u64 nodes = 0;
+    bool stopped = false;
+};
+
+struct AspirationIterationProfile {
+    int rootDepth = 0, pvIndex = 0, threadIndex = 0, searchAgainCounter = 0;
+    int averageScore = 0, positiveMeanSquare = 0, legacySignedSquare = 0;
+    i64 variance = 0;
+    int initialDelta = 0, initialDeltaGrowth = 0, initialAlpha = 0, initialBeta = 0;
+    bool validHistory = false, adaptiveWindow = false;
+    std::vector<AspirationAttemptProfile> attempts;
+};
+
+struct AspirationSearchProfile {
+    std::vector<AspirationIterationProfile> iterations;
+};
+
+thread_local AspirationSearchProfile aspirationSearchProfile;
+
+void output_aspiration_profile(const Position& pos, const u64 searchedNodes) {
+    std::ostringstream output;
+    output << std::boolalpha << "info string ASPIRATION_PROFILE {\"schema\":2"
+           << ",\"variant\":\"sf-bd23141-xq1-dp\""
+           << ",\"position_key\":" << u64(pos.key())
+           << ",\"searched_nodes\":" << searchedNodes
+           << ",\"iterations\":[";
+    for (usize index = 0; index < aspirationSearchProfile.iterations.size(); ++index)
+    {
+        if (index)
+            output << ',';
+        const auto& iteration = aspirationSearchProfile.iterations[index];
+        output << "{\"root_depth\":" << iteration.rootDepth
+               << ",\"pv_index\":" << iteration.pvIndex
+               << ",\"thread_index\":" << iteration.threadIndex
+               << ",\"search_again_counter\":" << iteration.searchAgainCounter
+               << ",\"average_score\":" << iteration.averageScore
+               << ",\"positive_mean_square\":" << iteration.positiveMeanSquare
+               << ",\"legacy_signed_square\":" << iteration.legacySignedSquare
+               << ",\"variance\":" << iteration.variance
+               << ",\"initial_delta\":" << iteration.initialDelta
+               << ",\"initial_delta_growth\":" << iteration.initialDeltaGrowth
+               << ",\"initial_alpha\":" << iteration.initialAlpha
+               << ",\"initial_beta\":" << iteration.initialBeta
+               << ",\"valid_history\":" << iteration.validHistory
+               << ",\"adaptive_window\":" << iteration.adaptiveWindow
+               << ",\"attempts\":[";
+        for (usize attemptIndex = 0; attemptIndex < iteration.attempts.size(); ++attemptIndex)
+        {
+            if (attemptIndex)
+                output << ',';
+            const auto& attempt = iteration.attempts[attemptIndex];
+            output << "{\"alpha\":" << attempt.alpha
+                   << ",\"beta\":" << attempt.beta
+                   << ",\"delta\":" << attempt.delta
+                   << ",\"adjusted_depth\":" << attempt.adjustedDepth
+                   << ",\"failed_high_count_before\":" << attempt.failedHighCountBefore
+                   << ",\"best_value\":" << attempt.bestValue
+                   << ",\"outcome\":" << attempt.outcome
+                   << ",\"nodes\":" << attempt.nodes
+                   << ",\"stopped\":" << attempt.stopped << '}';
+        }
+        output << "]}";
+    }
+    output << "]}";
+    sync_cout << output.str() << sync_endl;
+}
+
+#endif
 
 // (*Scalers):
 // The values with Scaler asterisks have proven non-linear scaling.
@@ -177,6 +315,9 @@ void Search::Worker::ensure_network_replicated() {
 void Search::Worker::start_searching() {
 
     accumulatorStack.reset();
+#ifdef XFISH_ASPIRATION_PROFILE
+    aspirationSearchProfile = {};
+#endif
 
     // Non-main threads go directly to iterative_deepening()
     if (!is_mainthread())
@@ -243,6 +384,9 @@ void Search::Worker::start_searching() {
         ponder = UCIEngine::move(bestThread->rootMoves[0].pv[1]);
 
     auto bestmove = UCIEngine::move(bestThread->rootMoves[0].pv[0]);
+#ifdef XFISH_ASPIRATION_PROFILE
+    output_aspiration_profile(rootPos, nodes.load(std::memory_order_relaxed));
+#endif
     main_manager()->updates.onBestmove(bestmove, ponder);
 }
 
@@ -263,7 +407,7 @@ bool Search::Worker::iterative_deepening() {
     Value  bestValue     = -VALUE_INFINITE;
     Color  us            = rootPos.side_to_move();
     double timeReduction = 1, totBestMoveChanges = 0;
-    int    delta, iterIdx                        = 0;
+    int    delta, deltaGrowth, iterIdx            = 0;
 
     // Allocate stack with extra size to allow access from (ss - 7) to (ss + 2):
     // (ss - 7) is needed for update_continuation_histories(ss - 1) which accesses (ss - 6),
@@ -341,11 +485,68 @@ bool Search::Worker::iterative_deepening() {
             // Reset UCI info selDepth for each depth and each PV line
             selDepth = 0;
 
-            // Reset aspiration window starting size
-            delta     = 10 + threadIdx % 8 + std::abs(rootMoves[pvIdx].meanSquaredScore) / 39605;
+            // Reset aspiration window starting size. The accepted v0.4.0
+            // signed-square policy is retained for decisive scores. For all
+            // other valid scores, estimate volatility from E[x^2] - E[x]^2.
             Value avg = rootMoves[pvIdx].averageScore;
+            bool adaptiveWindow = avg > -VALUE_INFINITE && avg < VALUE_INFINITE
+                               && !is_decisive(avg);
+
+            if (avg <= -VALUE_INFINITE || avg >= VALUE_INFINITE)
+            {
+                avg            = 0;
+                delta          = VALUE_INFINITE * VALUE_INFINITE;
+                deltaGrowth    = 0;
+                adaptiveWindow = true;
+            }
+            else if (!adaptiveWindow)
+            {
+                delta = 10 + threadIdx % 8
+                      + std::abs(rootMoves[pvIdx].legacySignedSquare) / 39605;
+                deltaGrowth = 0;
+            }
+            else
+            {
+                const i64 absAvg = std::abs(i64(avg));
+                const i64 variance = std::max<i64>(
+                  0, i64(rootMoves[pvIdx].meanSquaredScore) - i64(avg) * avg);
+                const i64 stddev = integer_sqrt(u32(variance));
+
+                const i64 initialContribution = std::min<i64>(
+                  AspirationInitialStdScale * stddev + AspirationInitialAvgScale * absAvg,
+                  AspirationInitialCap * AspirationScale);
+                const i64 growthContribution = std::min<i64>(
+                  AspirationGrowthStdScale * stddev + AspirationGrowthAvgScale * absAvg,
+                  AspirationGrowthCap * AspirationScale);
+
+                delta = AspirationInitialBase + int(initialContribution / AspirationScale);
+                deltaGrowth =
+                  AspirationGrowthBase + int(growthContribution / AspirationScale);
+            }
             alpha     = std::max(avg - delta, -VALUE_INFINITE);
             beta      = std::min(avg + delta, VALUE_INFINITE);
+
+#ifdef XFISH_ASPIRATION_PROFILE
+            auto& aspirationIteration = aspirationSearchProfile.iterations.emplace_back();
+            aspirationIteration.rootDepth          = rootDepth;
+            aspirationIteration.pvIndex            = int(pvIdx);
+            aspirationIteration.threadIndex        = int(threadIdx);
+            aspirationIteration.searchAgainCounter = searchAgainCounter;
+            aspirationIteration.averageScore       = avg;
+            aspirationIteration.positiveMeanSquare = rootMoves[pvIdx].meanSquaredScore;
+            aspirationIteration.legacySignedSquare = rootMoves[pvIdx].legacySignedSquare;
+            aspirationIteration.validHistory =
+              rootMoves[pvIdx].meanSquaredScore != -VALUE_INFINITE * VALUE_INFINITE;
+            aspirationIteration.variance =
+              aspirationIteration.validHistory
+                ? std::max<i64>(0, i64(rootMoves[pvIdx].meanSquaredScore) - i64(avg) * avg)
+                : 0;
+            aspirationIteration.initialDelta       = delta;
+            aspirationIteration.initialDeltaGrowth = deltaGrowth;
+            aspirationIteration.initialAlpha       = alpha;
+            aspirationIteration.initialBeta        = beta;
+            aspirationIteration.adaptiveWindow     = adaptiveWindow;
+#endif
 
             // Adjust optimism based on root move's averageScore
             optimism[us]  = 92 * avg / (std::abs(avg) + 95);
@@ -362,7 +563,27 @@ bool Search::Worker::iterative_deepening() {
                 Depth adjustedDepth =
                   std::max(1, rootDepth - failedHighCnt - 3 * (searchAgainCounter + 1) / 4);
                 rootDelta = beta - alpha;
+#ifdef XFISH_ASPIRATION_PROFILE
+                const int profileAlpha         = alpha;
+                const int profileBeta          = beta;
+                const int profileDelta         = delta;
+                const int profileFailedHighCnt = failedHighCnt;
+                const u64 profileNodesBefore   = nodes.load(std::memory_order_relaxed);
+#endif
                 bestValue = search<Root>(rootPos, ss, alpha, beta, adjustedDepth, false);
+#ifdef XFISH_ASPIRATION_PROFILE
+                const u64 profileNodesAfter = nodes.load(std::memory_order_relaxed);
+                aspirationIteration.attempts.push_back(
+                  {profileAlpha,
+                   profileBeta,
+                   profileDelta,
+                   adjustedDepth,
+                   profileFailedHighCnt,
+                   bestValue,
+                   bestValue <= profileAlpha ? -1 : bestValue >= profileBeta ? 1 : 0,
+                   profileNodesAfter - profileNodesBefore,
+                   bool(threads.stop)});
+#endif
 
                 // Bring the best move to the front. It is critical that sorting
                 // is done with a stable algorithm because all the values but the
@@ -405,7 +626,14 @@ bool Search::Worker::iterative_deepening() {
                 else
                     break;
 
-                delta += 44 * delta / 128;
+                if (adaptiveWindow && !XFISH_ASP_USE_LEGACY_GROWTH)
+                {
+                    const int deltaInc = std::max(AspirationGrowthRate * deltaGrowth / 128, 1);
+                    delta += deltaInc;
+                    deltaGrowth += deltaInc;
+                }
+                else
+                    delta += 44 * delta / 128;
 
                 assert(alpha >= -VALUE_INFINITE && beta <= VALUE_INFINITE);
             }
@@ -1339,7 +1567,10 @@ moves_loop:  // When in check, search starts here
                                      / (N * ChiDenominator + ChiNumerator * E_prev),
                                    MinWeight, MaxWeight);
             u64 w_mss = std::min(w, u64(16));
-            i64 v2    = i64(value) * std::abs(value);
+            const int clampedValue =
+              std::clamp(int(value), -AspirationScoreSampleCap, AspirationScoreSampleCap);
+            i64 v2 = i64(std::abs(clampedValue)) * std::abs(clampedValue);
+            i64 legacyV2 = i64(value) * std::abs(value);
 
             if (rm.averageScore == -VALUE_INFINITE)
                 rm.averageScore = value;
@@ -1347,10 +1578,16 @@ moves_loop:  // When in check, search starts here
                 rm.averageScore = Value((value * w + rm.averageScore * (Scale - w)) / Scale);
 
             if (rm.meanSquaredScore == -VALUE_INFINITE * VALUE_INFINITE)
-                rm.meanSquaredScore = value * std::abs(value);
+                rm.meanSquaredScore = Value(v2);
             else
                 rm.meanSquaredScore =
                   Value((v2 * w_mss + int64_t(rm.meanSquaredScore) * (Scale - w_mss)) / Scale);
+
+            if (rm.legacySignedSquare == -VALUE_INFINITE * VALUE_INFINITE)
+                rm.legacySignedSquare = Value(legacyV2);
+            else
+                rm.legacySignedSquare = Value(
+                  (legacyV2 * w_mss + int64_t(rm.legacySignedSquare) * (Scale - w_mss)) / Scale);
 
             // PV move or new best move?
             if (moveCount == 1 || value > alpha)

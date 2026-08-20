@@ -43,6 +43,9 @@
 #include "types.h"
 #include "uci.h"
 #include "ucioption.h"
+#ifdef XFISH_LEGAL_MOVEGEN_VERIFY
+#include "legal_movegen_verify.h"
+#endif
 
 namespace Stockfish {
 
@@ -178,6 +181,11 @@ void Search::Worker::start_searching() {
 
     accumulatorStack.reset();
 
+#ifdef XFISH_LEGAL_MOVEGEN_VERIFY
+    if (is_mainthread())
+        LegalMovegenVerify::begin_search();
+#endif
+
     // Non-main threads go directly to iterative_deepening()
     if (!is_mainthread())
     {
@@ -243,6 +251,10 @@ void Search::Worker::start_searching() {
         ponder = UCIEngine::move(bestThread->rootMoves[0].pv[1]);
 
     auto bestmove = UCIEngine::move(bestThread->rootMoves[0].pv[0]);
+#ifdef XFISH_LEGAL_MOVEGEN_VERIFY
+    sync_cout << "info string LEGAL_MOVEGEN_VERIFY "
+              << LegalMovegenVerify::finish_search_json() << sync_endl;
+#endif
     main_manager()->updates.onBestmove(bestmove, ponder);
 }
 
@@ -965,7 +977,7 @@ Value Search::Worker::search(
         {
             assert(move.is_ok());
 
-            if (move == excludedMove || !pos.legal(move))
+            if (move == excludedMove)
                 continue;
 
             assert(pos.capture(move));
@@ -1014,17 +1026,13 @@ moves_loop:  // When in check, search starts here
 
     int moveCount = 0;
 
-    // Step 12. Loop through all pseudo-legal moves until no moves remain
+    // Step 12. Loop through all legal moves until no moves remain
     // or a beta cutoff occurs.
     while ((move = mp.next_move()) != Move::none())
     {
         assert(move.is_ok());
 
         if (move == excludedMove)
-            continue;
-
-        // Check for legality
-        if (!pos.legal(move))
             continue;
 
         // At root obey the "searchmoves" option and skip moves not listed in Root Move List.
@@ -1664,14 +1672,11 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     MovePicker mp(pos, ttData.move, DEPTH_QS, &mainHistory, &lowPlyHistory, &captureHistory,
                   contHist, &sharedHistory, ss->ply);
 
-    // Step 5. Loop through all pseudo-legal moves until no moves remain or a beta
+    // Step 5. Loop through all legal moves until no moves remain or a beta
     // cutoff occurs.
     while ((move = mp.next_move()) != Move::none())
     {
         assert(move.is_ok());
-
-        if (!pos.legal(move))
-            continue;
 
         givesCheck = pos.gives_check(move);
         capture    = pos.capture(move);

@@ -25,6 +25,9 @@
 #include "bitboard.h"
 #include "misc.h"
 #include "position.h"
+#ifdef XFISH_LEGAL_MOVEGEN_VERIFY
+#include "legal_movegen_verify.h"
+#endif
 
 namespace Stockfish {
 
@@ -169,10 +172,14 @@ MovePicker::MovePicker(const Position&              p,
     depth(d),
     ply(pl) {
 
+    if (pos.fast_legal_common())
+        fastLegalExcept = pos.king_square(pos.side_to_move());
+
     if (pos.checkers())
-        stage = EVASION_TT + !(ttm && pos.pseudo_legal(ttm));
+        stage = EVASION_TT + !(ttm && pos.pseudo_legal(ttm) && legal(ttm));
     else
-        stage = (depth > 0 ? MAIN_TT : QSEARCH_TT) + !(ttm && pos.pseudo_legal(ttm));
+        stage =
+          (depth > 0 ? MAIN_TT : QSEARCH_TT) + !(ttm && pos.pseudo_legal(ttm) && legal(ttm));
 }
 
 // MovePicker constructor for ProbCut: we generate captures with Static Exchange
@@ -184,7 +191,25 @@ MovePicker::MovePicker(const Position& p, Move ttm, int th, const CapturePieceTo
     threshold(th) {
     assert(!pos.checkers());
 
-    stage = PROBCUT_TT + !(ttm && pos.capture(ttm) && pos.pseudo_legal(ttm));
+    if (pos.fast_legal_common())
+        fastLegalExcept = pos.king_square(pos.side_to_move());
+
+    stage = PROBCUT_TT + !(ttm && pos.capture(ttm) && pos.pseudo_legal(ttm) && legal(ttm));
+}
+
+// Keep legality lazy: stage filters and move ordering run first. In the common
+// no-check/no-blocker state, every non-king source square is safe, so one byte
+// is enough to cache the only excluded source. All complex moves fall back to
+// the unchanged Position::legal() oracle.
+bool MovePicker::legal(Move move) const {
+    const bool fastProof = fastLegalExcept != SQ_NONE && move.from_sq() != fastLegalExcept;
+#ifdef XFISH_LEGAL_MOVEGEN_VERIFY
+    const bool legacy = pos.legal(move);
+    LegalMovegenVerify::record(fastProof, legacy);
+    return fastProof || legacy;
+#else
+    return fastProof || pos.legal(move);
+#endif
 }
 
 // Assigns a numerical value to each move in a list, used for sorting.
@@ -270,14 +295,14 @@ template<typename Pred>
 Move MovePicker::select(Pred filter) {
 
     for (; cur < endCur; ++cur)
-        if (*cur != ttMove && filter())
+        if (*cur != ttMove && filter() && legal(*cur))
             return *cur++;
 
     return Move::none();
 }
 
 // This is the most important method of the MovePicker class. We emit one
-// new pseudo-legal move on every call until there are no more moves left,
+// new legal move on every call until there are no more moves left,
 // picking the move with the highest score from a list of generated moves.
 Move MovePicker::next_move() {
 

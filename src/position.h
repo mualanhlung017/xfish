@@ -120,6 +120,7 @@ class Position {
     // Checking
     Bitboard checkers() const;
     Bitboard blockers_for_king(Color c) const;
+    bool     fast_legal_common() const;
     Bitboard check_squares(PieceType pt) const;
     Bitboard pinners(Color c) const;
 
@@ -286,6 +287,13 @@ inline Bitboard Position::attacks_by(Color c) const {
 inline Bitboard Position::checkers() const { return st->checkersBB; }
 
 inline Bitboard Position::blockers_for_king(Color c) const { return st->blockersForKing[c]; }
+
+// In this common state, every non-king source square is safe. This deliberately
+// excludes every complex Xiangqi state: check, hollow cannon and cached
+// blockers all remain on Position::legal()'s exact oracle.
+inline bool Position::fast_legal_common() const {
+    return !st->needFullCheck && !st->blockersForKing[sideToMove];
+}
 
 inline Bitboard Position::pinners(Color c) const { return st->pinners[c]; }
 

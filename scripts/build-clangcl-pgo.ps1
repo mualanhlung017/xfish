@@ -5,6 +5,14 @@ param(
 
     [string]$BuildDirectory = 'build/clangcl-avx2-pgo',
 
+    [ValidateSet('ON', 'OFF')]
+    [string]$NoRootRoot = 'OFF',
+
+    [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9._-]*$')]
+    [string]$PackageName = 'xfish-windows-x64-avx2-pgo',
+
+    [switch]$BuildRuleTests,
+
     [ValidateRange(1, 256)]
     [int]$Jobs = [Environment]::ProcessorCount,
 
@@ -115,7 +123,6 @@ $generateDir = Join-Path $buildRoot 'generate'
 $useDir = Join-Path $buildRoot 'use'
 $profileDir = Join-Path $buildRoot 'profiles'
 $artifactRoot = Join-Path $repoRoot 'artifacts'
-$packageName = 'xfish-windows-x64-avx2-pgo'
 $packageDir = Join-Path $artifactRoot $packageName
 $zipPath = Join-Path $artifactRoot "$packageName.zip"
 
@@ -158,11 +165,13 @@ function Configure-Xfish {
         "-DCMAKE_CXX_COMPILER=$clangClCmake",
         "-DXFISH_ARCH=$Architecture",
         "-DXFISH_PGO=$PgoStage",
-        '-DXFISH_LTO=ON'
+        '-DXFISH_LTO=ON',
+        "-DNO_ROOT_ROOT=$NoRootRoot"
     )
     if ($Profile) {
         $arguments += "-DXFISH_PGO_PROFILE=$($Profile.Replace('\', '/'))"
     }
+    $arguments += "-DXFISH_BUILD_RULE_TESTS=$(if ($BuildRuleTests -and $PgoStage -eq 'USE') {'ON'} else {'OFF'})"
     Invoke-Checked -FilePath $cmake -Arguments $arguments
 }
 
@@ -270,6 +279,7 @@ $sourceCommit = (& git -C $repoRoot rev-parse HEAD).Trim()
     "Compiler: $compilerVersion"
     'ABI/runtime: MSVC x64 ABI, static MSVC runtime'
     'Optimization: AVX2, LLVM LTO, LLVM PGO trained with the built-in benchmark'
+    "NO_ROOT_ROOT: $NoRootRoot (ON forbids a rook perpetually chasing the same unprotected enemy rook)"
     "NNUE SHA256: $networkHash"
     "Executable SHA256: $($hash.Hash.ToLowerInvariant())"
     ''

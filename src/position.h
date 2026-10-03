@@ -195,6 +195,10 @@ class Position {
     std::pair<Piece, int> do_move(Move m);
     void                  undo_move(Move m, Piece captured, int id = 0);
     Value                 detect_chases(int d, int ply = 0);
+#if defined(NO_ROOT_ROOT) && NO_ROOT_ROOT
+    using RookChaseMap = std::array<u16, 16>;
+    RookChaseMap rook_chased(Color c);
+#endif
     bool                  chase_legal(Move m) const;
     template<bool AfterMove = false>
     Key adjust_key60(Key k) const;

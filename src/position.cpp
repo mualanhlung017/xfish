@@ -1230,6 +1230,44 @@ u16 Position::chased(Color c) {
 }
 
 
+#if defined(NO_ROOT_ROOT) && NO_ROOT_ROOT
+// Custom rule: a rook repeatedly chasing the same unprotected enemy rook.
+// Keep both IDs so a standing attack by another rook cannot hide a new threat.
+Position::RookChaseMap Position::rook_chased(Color c) {
+    RookChaseMap chase{};
+    std::swap(c, sideToMove);
+    Bitboard attackers = pieces(sideToMove, ROOK);
+    while (attackers)
+    {
+        Square from = pop_lsb(attackers);
+        Bitboard targets = attacks_bb<ROOK>(from, pieces()) & pieces(~sideToMove, ROOK);
+        while (targets)
+        {
+            Square to = pop_lsb(targets);
+            Move m(from, to);
+            if (!chase_legal(m))
+                continue;
+
+            int attackerId = idBoard[from], victimId = idBoard[to];
+            const auto [captured, id] = do_move(m);
+            bool protectedVictim = false;
+            Bitboard recaptures = attackers_to(to) & pieces(sideToMove);
+            while (recaptures)
+                if (chase_legal(Move(pop_lsb(recaptures), to)))
+                {
+                    protectedVictim = true;
+                    break;
+                }
+            undo_move(m, captured, id);
+            if (!protectedVictim)
+                chase[attackerId] |= u16(1 << victimId);
+        }
+    }
+    std::swap(c, sideToMove);
+    return chase;
+}
+#endif
+
 // Detects chases from state st - d to state st
 Value Position::detect_chases(int d, int ply) {
 
@@ -1244,13 +1282,25 @@ Value Position::detect_chases(int d, int ply) {
 
     // Rollback until we reached st - d
     u16 chase[COLOR_NB] = {0xFFFF, 0xFFFF};
+#if defined(NO_ROOT_ROOT) && NO_ROOT_ROOT
+    RookChaseMap rookChase[COLOR_NB];
+    rookChase[WHITE].fill(0xFFFF);
+    rookChase[BLACK].fill(0xFFFF);
+    const auto isChasing = [&](Color c) {
+        return chase[c] || std::any_of(rookChase[c].begin(), rookChase[c].end(), [](u16 victims) {
+            return victims != 0;
+        });
+    };
+#else
+    const auto isChasing = [&](Color c) { return bool(chase[c]); };
+#endif
     for (int i = 0; i < d; ++i)
     {
         if (st->checkersBB)
             return VALUE_DRAW;
-        else if (!chase[~sideToMove])
+        else if (!isChasing(~sideToMove))
         {
-            if (!chase[sideToMove])
+            if (!isChasing(sideToMove))
                 break;
             undo_move(st->move, st->capturedPiece);
             st = st->previous;
@@ -1258,14 +1308,22 @@ Value Position::detect_chases(int d, int ply) {
         else
         {
             u16 after = chased(~sideToMove);
+#if defined(NO_ROOT_ROOT) && NO_ROOT_ROOT
+            RookChaseMap rookAfter = rook_chased(~sideToMove);
+#endif
             undo_move(st->move, st->capturedPiece);
             st = st->previous;
             // Take the exact diff to detect the chase
             chase[sideToMove] &= after & ~chased(sideToMove);
+#if defined(NO_ROOT_ROOT) && NO_ROOT_ROOT
+            RookChaseMap rookBefore = rook_chased(sideToMove);
+            for (usize attacker = 0; attacker < rookAfter.size(); ++attacker)
+                rookChase[sideToMove][attacker] &= rookAfter[attacker] & ~rookBefore[attacker];
+#endif
         }
     }
 
-    return bool(chase[us]) ^ bool(chase[them]) ? chase[us] ? mated_in(ply) : mate_in(ply)
+    return isChasing(us) ^ isChasing(them) ? isChasing(us) ? mated_in(ply) : mate_in(ply)
                                                : VALUE_DRAW;
 }
 

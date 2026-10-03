@@ -75,6 +75,18 @@ BINDIR = $(PREFIX)/bin
 ### Built-in benchmark for pgo-builds
 PGOBENCH = $(RUN_PREFIX) ./$(EXE) bench
 
+# Custom rule: ON forbids a rook chasing the same unprotected enemy rook.
+# Keep OFF as the baseline-compatible default. CPPFLAGS reaches both PGO stages.
+NO_ROOT_ROOT ?= OFF
+ifeq ($(NO_ROOT_ROOT),ON)
+    CPPFLAGS += -DNO_ROOT_ROOT=1
+else ifeq ($(NO_ROOT_ROOT),OFF)
+    CPPFLAGS += -DNO_ROOT_ROOT=0
+else
+    $(error NO_ROOT_ROOT must be ON or OFF)
+endif
+RULE_CONFIG_FILE := .build_no_root_root.txt
+
 ### Source and object files
 SRCS = $(shell find -L . \( -path './universal' -o -path './temp_builds' \) -prune -o \( -name '*.cpp' -o -name '*.S' \) -print | sed 's|^\./||')
 
@@ -1069,6 +1081,14 @@ endif
 	gcc-profile-use gcc-profile-make \
 	clang-profile-use clang-profile-make FORCE \
 	format analyze
+
+# Changing rule variants in an existing tree must invalidate every object.
+$(RULE_CONFIG_FILE): FORCE
+	@if test "$$(cat $(RULE_CONFIG_FILE) 2>/dev/null)" != "$(NO_ROOT_ROOT)"; then \
+	    printf '%s\n' '$(NO_ROOT_ROOT)' > $(RULE_CONFIG_FILE); \
+	fi
+
+$(OBJS): $(RULE_CONFIG_FILE)
 
 analyze: net config-sanity objclean
 	$(MAKE) -k ARCH=$(ARCH) COMP=$(COMP) $(notdir $(patsubst %.cpp,%.o,$(filter-out external/%,$(filter %.cpp,$(SRCS)))))

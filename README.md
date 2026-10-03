@@ -1,3 +1,9 @@
+# Xfish baseline v0.5.0
+
+Based on v0.4.0. Build with `NO_ROOT_ROOT=ON` to additionally prohibit a rook
+perpetually chasing the same unprotected enemy rook. The default `OFF` retains
+v0.4.0 rules. See [rule contract, builds and verification](docs/baseline-v0.5.0-rook-chase.md).
+
 <div align="center">
 
   [![Pikafish][pikafish-logo]][website-link]

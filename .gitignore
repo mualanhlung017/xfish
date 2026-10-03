@@ -9,6 +9,7 @@ src/temp_builds
 .build_sha.txt
 .build_date.txt
 .build_diffindex.txt
+.build_no_root_root.txt
 
 # Built binary
 src/pikafish*

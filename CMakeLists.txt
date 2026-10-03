@@ -14,6 +14,8 @@ set_property(CACHE XFISH_PGO PROPERTY STRINGS OFF GENERATE USE)
 set(XFISH_PGO_PROFILE "" CACHE FILEPATH "Merged LLVM profile used by the USE stage")
 
 option(XFISH_LTO "Enable link-time optimization" ON)
+option(NO_ROOT_ROOT "Forbid a rook perpetually chasing the same unprotected enemy rook" OFF)
+option(XFISH_BUILD_RULE_TESTS "Build the full-history rule regression probe" OFF)
 
 if(NOT XFISH_ARCH STREQUAL "avx2")
     message(FATAL_ERROR "Unsupported XFISH_ARCH='${XFISH_ARCH}'. This baseline is intentionally AVX2-only.")
@@ -44,6 +46,7 @@ set_target_properties(xfish PROPERTIES
 # Keep the AVX2 feature set aligned with `make ARCH=x86-64-avx2` while using
 # clang-cl, the Microsoft STL, the MSVC ABI, and the static MSVC runtime.
 target_compile_definitions(xfish PRIVATE
+    NO_ROOT_ROOT=$<BOOL:${NO_ROOT_ROOT}>
     ARCH=x86-64-avx2
     USE_AVX2
     USE_POPCNT
@@ -124,3 +127,20 @@ message(STATUS "xfish architecture : x86-64-avx2")
 message(STATUS "xfish compiler     : ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION} (${CMAKE_CXX_COMPILER})")
 message(STATUS "xfish PGO stage    : ${XFISH_PGO}")
 message(STATUS "xfish LTO          : ${XFISH_LTO}")
+message(STATUS "xfish NO_ROOT_ROOT : ${NO_ROOT_ROOT}")
+
+if(XFISH_BUILD_RULE_TESTS)
+    set(XFISH_RULE_SOURCES ${XFISH_SOURCES})
+    list(FILTER XFISH_RULE_SOURCES EXCLUDE REGEX "/main\\.cpp$")
+    add_executable(xfish-rule-probe tests/rook_chase_probe.cpp ${XFISH_RULE_SOURCES})
+    target_compile_features(xfish-rule-probe PRIVATE cxx_std_17)
+    foreach(PROP INCLUDE_DIRECTORIES COMPILE_DEFINITIONS COMPILE_OPTIONS LINK_OPTIONS)
+        set_property(TARGET xfish-rule-probe PROPERTY ${PROP} "$<TARGET_PROPERTY:xfish,${PROP}>")
+    endforeach()
+    set_target_properties(xfish-rule-probe PROPERTIES
+        CXX_EXTENSIONS OFF
+        MSVC_RUNTIME_LIBRARY "MultiThreaded"
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+        INTERPROCEDURAL_OPTIMIZATION ${XFISH_LTO}
+    )
+endif()

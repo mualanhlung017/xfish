@@ -1,5 +1,9 @@
 # Xfish baseline v0.5.0
 
+This source also supports the official **2026-10-01 master-net (SFNNv17)** and
+the legacy network, detected automatically. See the
+[NNUE compatibility notes and verification](docs/pikafish-master-net-20261001-compatibility.md).
+
 Based on v0.4.0. Build with `NO_ROOT_ROOT=ON` to additionally prohibit a rook
 perpetually chasing the same unprotected enemy rook. The default `OFF` retains
 v0.4.0 rules. See [rule contract, builds and verification](docs/baseline-v0.5.0-rook-chase.md).

@@ -18,6 +18,7 @@
 
 #include "network.h"
 
+#include <algorithm>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
@@ -41,14 +42,14 @@ namespace fs = std::filesystem;
 namespace Detail {
 
 // Read evaluation function parameters
-template<typename T>
-bool read_parameters(std::istream& stream, T& reference) {
+template<typename T, typename... Args>
+bool read_parameters(std::istream& stream, T& reference, Args... args) {
 
     u32 header;
     header = read_little_endian<u32>(stream);
     if (!stream || header != T::get_hash_value())
         return false;
-    return reference.read_parameters(stream);
+    return reference.read_parameters(stream, args...);
 }
 
 // Write evaluation function parameters
@@ -168,6 +169,8 @@ void Network::verify(const std::function<void(std::string_view)>& f,
           + std::to_string(network[0].TransformedFeatureDimensions) + ", "
           + std::to_string(network[0].FC_0_OUTPUTS) + ", " + std::to_string(network[0].FC_1_OUTPUTS)
           + ", 1))");
+        f(uses_psqt() ? "NNUE format SFNNv16 (legacy PSQT)"
+                      : "NNUE format SFNNv17 (no PSQT)");
     }
 }
 
@@ -220,10 +223,24 @@ bool Network::save(std::ostream& stream, const std::string& netDescription) cons
 
 
 std::optional<std::string> Network::load(std::istream& stream) {
-    initialize();
+    const auto start = stream.tellg();
     std::string description;
-
-    return read_parameters(stream, description) ? std::make_optional(description) : std::nullopt;
+    // Both upstream formats have the same header hash. Accept only a complete
+    // parse with matching layer hashes and EOF, never a weakened hash check.
+    if (read_parameters(stream, description, true))
+    {
+        initialize();
+        return description;
+    }
+    stream.clear();
+    stream.seekg(start);
+    if (stream && read_parameters(stream, description, false))
+    {
+        initialize();
+        return description;
+    }
+    initialized = false;
+    return std::nullopt;
 }
 
 
@@ -247,8 +264,19 @@ bool Network::read_header(std::istream& stream, u32* hashValue, std::string* des
     size       = read_little_endian<u32>(stream);
     if (!stream || version != Version)
         return false;
-    desc->resize(size);
-    stream.read(&(*desc)[0], size);
+    constexpr u32 Chunk = 4096;
+    char buf[Chunk];
+    desc->clear();
+    for (u32 remaining = size; remaining > 0;)
+    {
+        const u32 want = std::min(remaining, Chunk);
+        stream.read(buf, want);
+        const u32 got = u32(stream.gcount());
+        desc->append(buf, got);
+        if (got != want)
+            return false;
+        remaining -= want;
+    }
     return !stream.fail();
 }
 
@@ -263,13 +291,13 @@ bool Network::write_header(std::ostream& stream, u32 hashValue, const std::strin
 }
 
 
-bool Network::read_parameters(std::istream& stream, std::string& netDescription) {
+bool Network::read_parameters(std::istream& stream, std::string& netDescription, bool legacyPSQT) {
     u32 hashValue;
     if (!read_header(stream, &hashValue, &netDescription))
         return false;
     if (hashValue != Network::hash)
         return false;
-    if (!Detail::read_parameters(stream, featureTransformer))
+    if (!Detail::read_parameters(stream, featureTransformer, legacyPSQT))
         return false;
     for (usize i = 0; i < LayerStacks; ++i)
     {

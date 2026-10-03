@@ -13,6 +13,9 @@ param(
 
     [switch]$BuildRuleTests,
 
+    [string]$AdditionalTrainingNetwork = '',
+    [string]$AdditionalTrainingNetworkSha256 = '',
+
     [ValidateRange(1, 256)]
     [int]$Jobs = [Environment]::ProcessorCount,
 
@@ -105,7 +108,10 @@ $clangClCmake = $clangCl.Replace('\', '/')
 $ninjaCmake = $ninja.Replace('\', '/')
 $network = Join-Path $repoRoot 'src/pikafish.nnue'
 $networkUrl = 'https://github.com/official-pikafish/Networks/releases/download/master-net/pikafish.nnue'
-$expectedNetworkSha256 = '3cd15292bf8c979884262f57fc723959fc0dea43b4d8d544f88db5ceb2479e24'
+$supportedNetworkSha256 = @(
+    '3cd15292bf8c979884262f57fc723959fc0dea43b4d8d544f88db5ceb2479e24',
+    '6b74ac7bbd299dc26a17803135b616eda9248bef0cbfc7b811bfcf981832ba29'
+)
 
 if (-not (Test-Path -LiteralPath $network)) {
     Write-Host "Downloading NNUE network from $networkUrl"
@@ -115,8 +121,8 @@ if ((Get-Item -LiteralPath $network).Length -lt 1MB) {
     throw "The downloaded NNUE network is unexpectedly small: $network"
 }
 $networkHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $network).Hash.ToLowerInvariant()
-if ($networkHash -ne $expectedNetworkSha256) {
-    throw "NNUE checksum mismatch. Expected $expectedNetworkSha256 but received $networkHash"
+if ($networkHash -notin $supportedNetworkSha256) {
+    throw "NNUE checksum mismatch. Expected a pinned SFNNv16/SFNNv17 network but received $networkHash"
 }
 
 $generateDir = Join-Path $buildRoot 'generate'
@@ -207,6 +213,28 @@ finally {
 }
 
 $rawProfiles = @(Get-ChildItem -LiteralPath $profileDir -Filter '*.profraw' -File)
+if ($AdditionalTrainingNetwork) {
+    $additionalNet = (Resolve-Path -LiteralPath $AdditionalTrainingNetwork).Path
+    $additionalHash = (Get-FileHash -LiteralPath $additionalNet -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($AdditionalTrainingNetworkSha256 -and $additionalHash -ne $AdditionalTrainingNetworkSha256.ToLowerInvariant()) {
+        throw 'Additional PGO network SHA-256 mismatch.'
+    }
+    $additionalInput = Join-Path $buildRoot 'additional-network-pgo.stdin.txt'
+    [IO.File]::WriteAllText($additionalInput,
+        "setoption name EvalFile value $additionalNet`nbench`nquit`n", [Text.UTF8Encoding]::new($false))
+    $previousProfileFile = $env:LLVM_PROFILE_FILE
+    $env:LLVM_PROFILE_FILE = Join-Path $profileDir 'xfish-%p.profraw'
+    try {
+        $additional = Start-Process -FilePath $instrumentedExe -WorkingDirectory (Join-Path $repoRoot 'src') `
+            -WindowStyle Hidden -PassThru -Wait -RedirectStandardInput $additionalInput `
+            -RedirectStandardOutput (Join-Path $buildRoot 'additional-network-pgo.stdout.txt') `
+            -RedirectStandardError (Join-Path $buildRoot 'additional-network-pgo.stderr.txt')
+        if ($additional.ExitCode -ne 0) { throw 'Additional network PGO training failed.' }
+    }
+    finally { $env:LLVM_PROFILE_FILE = $previousProfileFile }
+    $rawProfiles = @(Get-ChildItem -LiteralPath $profileDir -Filter '*.profraw' -File)
+    Write-Host "Additional PGO network: $additionalNet SHA256=$additionalHash"
+}
 if ($rawProfiles.Count -eq 0) {
     throw "No .profraw files were generated in $profileDir"
 }

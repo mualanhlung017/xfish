@@ -64,6 +64,7 @@ class Network {
     bool save(const EvalFile& evalFile, const std::optional<std::filesystem::path>& filename) const;
 
     usize get_content_hash() const;
+    bool uses_psqt() const { return featureTransformer.uses_psqt(); }
 
     NetworkOutput evaluate(const Position&    pos,
                            AccumulatorStack&  accumulatorStack,
@@ -89,7 +90,7 @@ class Network {
     bool read_header(std::istream&, u32*, std::string*) const;
     bool write_header(std::ostream&, u32, const std::string&) const;
 
-    bool read_parameters(std::istream&, std::string&);
+    bool read_parameters(std::istream&, std::string&, bool legacyPSQT);
     bool write_parameters(std::ostream&, const std::string&) const;
 
     // Input feature converter

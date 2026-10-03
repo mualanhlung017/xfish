@@ -418,7 +418,7 @@ void apply_combined(Color                              perspective,
         });
     }
 
-    for (IndexType j = 0; j < PSQTBuckets / Tiling::PsqtTileHeight; ++j)
+    for (IndexType j = 0; featureTransformer.uses_psqt() && j < PSQTBuckets / Tiling::PsqtTileHeight; ++j)
     {
         const usize psqtTileOff  = j * Tiling::PsqtTileHeight;
         auto*       fromTilePsqt = reinterpret_cast<const psqt_vec_t*>(&fromPsqtAcc[psqtTileOff]);
@@ -470,7 +470,7 @@ void apply_combined(Color                              perspective,
 
     tileOffset = 0;
 
-    while (tileOffset < PSQTBuckets)
+    while (featureTransformer.uses_psqt() && tileOffset < PSQTBuckets)
     {
         usize vl = __riscv_vsetvl_e32m1(PSQTBuckets - tileOffset);
 
@@ -811,7 +811,7 @@ void update_accumulator_refresh_cache(Color                     perspective,
             vec_store(&accTile[k], acc[k]);
     }
 
-    for (IndexType j = 0; j < PSQTBuckets / Tiling::PsqtTileHeight; ++j)
+    for (IndexType j = 0; featureTransformer.uses_psqt() && j < PSQTBuckets / Tiling::PsqtTileHeight; ++j)
     {
         const usize psqtTileOff = j * Tiling::PsqtTileHeight;
         auto*       accTilePsqt =
@@ -867,7 +867,7 @@ void update_accumulator_refresh_cache(Color                     perspective,
 
     tileOffset = 0;
 
-    while (tileOffset < PSQTBuckets)
+    while (featureTransformer.uses_psqt() && tileOffset < PSQTBuckets)
     {
         usize vl = __riscv_vsetvl_e32m1(PSQTBuckets - tileOffset);
 

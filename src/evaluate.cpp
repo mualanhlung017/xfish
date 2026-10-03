@@ -35,6 +35,25 @@
 
 namespace Stockfish {
 
+// SFNNv17 scaling from Pikafish master 1c66b9b2. Legacy nets continue through
+// the exact v0.5.0 PSQT/complexity path below.
+static Value scale_sfnnv17(Value nnue, int optimism, const Position& pos) {
+    const Color c = pos.side_to_move();
+    const int se = PawnValue * (pos.count<PAWN>(c) - pos.count<PAWN>(~c))
+                 + AdvisorValue * (pos.count<ADVISOR>(c) - pos.count<ADVISOR>(~c))
+                 + BishopValue * (pos.count<BISHOP>(c) - pos.count<BISHOP>(~c))
+                 + pos.major_material(c) - pos.major_material(~c);
+    const int seNorm = (se * 1024) / (std::abs(se) + 1024);
+    const int nnueNorm = (nnue * 1024) / (std::abs(nnue) + 1024);
+    const int alignment = (seNorm * nnueNorm) / 512;
+    const int baseEval = nnue + (nnue * alignment) / 65536 + (optimism * alignment) / 16384;
+    const int material = PawnValue * pos.count<PAWN>() + AdvisorValue * pos.count<ADVISOR>()
+                       + BishopValue * pos.count<BISHOP>() + pos.major_material();
+    int v = baseEval * i64(80030 + material) / 80030;
+    v -= v * pos.rule60_count() / 244;
+    return std::clamp(v, VALUE_MATED_IN_MAX_PLY + 1, VALUE_MATE_IN_MAX_PLY - 1);
+}
+
 // Evaluate is the evaluator for the outer world. It returns a static evaluation
 // of the position from the point of view of the side to move.
 Value Eval::evaluate(const Eval::NNUE::Network&     network,
@@ -48,6 +67,8 @@ Value Eval::evaluate(const Eval::NNUE::Network&     network,
     auto [psqt, positional] = network.evaluate(pos, accumulators, caches);
 
     Value nnue = psqt + positional;
+    if (!network.uses_psqt())
+        return scale_sfnnv17(nnue, optimism, pos);
 
     // Blend optimism and eval with nnue complexity
     int nnueComplexity = std::abs(psqt - positional);

@@ -47,6 +47,7 @@
 
 #include "types.h"
 #include "external/zstd.h"
+#include "nnue/nnue_common.h"
 
 namespace Stockfish {
 
@@ -55,7 +56,7 @@ namespace fs = std::filesystem;
 namespace {
 
 // Version number or dev.
-constexpr std::string_view version = "0.5.0";
+constexpr std::string_view version = "0.5.0-nnue-compat";
 
 // Our fancy logging facility. The trick here is to replace cin.rdbuf() and
 // cout.rdbuf() with two Tie objects that tie cin and cout to a file stream. We
@@ -614,6 +615,18 @@ std::stringstream read_compressed_nnue(const std::filesystem::path& fpath) {
     std::ifstream fin(fpath, std::ios::binary);
     if (!fin)
         return ss;
+
+    const u32 signature = Eval::NNUE::read_little_endian<u32>(fin);
+    fin.clear();
+    fin.seekg(0);
+    // export_net and the upstream trainer may produce an uncompressed file.
+    // Its version only selects the container; Network still validates hashes,
+    // all parameters/layers and exact EOF before accepting it.
+    if (signature == Eval::NNUE::Version)
+    {
+        ss << fin.rdbuf();
+        return ss;
+    }
     std::vector<char> buffIn(ZSTD_DStreamInSize()), buffOut(ZSTD_DStreamOutSize());
     auto              dctxDeleter = [&](auto* p) {
         if (p)
@@ -623,6 +636,7 @@ std::stringstream read_compressed_nnue(const std::filesystem::path& fpath) {
     if (!dctx)
         return ss;
 
+    bool frameComplete = false;
     while (fin.read(buffIn.data(), buffIn.size()) || fin.gcount() > 0)
     {
         usize         read  = static_cast<usize>(fin.gcount());
@@ -633,13 +647,14 @@ std::stringstream read_compressed_nnue(const std::filesystem::path& fpath) {
             ZSTD_outBuffer output = {buffOut.data(), buffOut.size(), 0};
             usize const    ret    = ZSTD_decompressStream(dctx.get(), &output, &input);
             if (ZSTD_isError(ret))
-                return ss;
+                return {};
+            frameComplete = ret == 0;
 
             ss.write(buffOut.data(), output.pos);
         }
     }
 
-    return ss;
+    return frameComplete && !fin.bad() ? std::move(ss) : std::stringstream{};
 }
 
 }  // namespace Stockfish

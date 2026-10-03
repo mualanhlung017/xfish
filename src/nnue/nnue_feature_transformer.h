@@ -145,16 +145,35 @@ class FeatureTransformer {
     }
 
     // Read network parameters
-    bool read_parameters(std::istream& stream) {
+    bool uses_psqt() const { return usePSQT; }
+
+    bool read_parameters(std::istream& stream, bool legacyPSQT = true) {
+        usePSQT = legacyPSQT;
         read_leb_128(stream, biases);
+        if (!stream)
+            return false;
 
         read_little_endian<ThreatWeightType>(stream, threatWeights.data(),
                                              ThreatInputDimensions * HalfDimensions);
-        read_leb_128(stream, threatPsqtWeights);
+        if (!stream)
+            return false;
+        if (usePSQT)
+            read_leb_128(stream, threatPsqtWeights);
+        else
+            threatPsqtWeights.fill(0);
+        if (!stream)
+            return false;
 
         read_little_endian<WeightType>(stream, weights.data(),
                                        PSQFeatureSet::Dimensions * HalfDimensions);
-        read_leb_128(stream, psqtWeights);
+        if (!stream)
+            return false;
+        if (usePSQT)
+            read_leb_128(stream, psqtWeights);
+        else
+            psqtWeights.fill(0);
+        if (!stream)
+            return false;
 
         permute_weights();
 
@@ -171,11 +190,13 @@ class FeatureTransformer {
 
         write_little_endian<ThreatWeightType>(stream, copy->threatWeights.data(),
                                               ThreatInputDimensions * HalfDimensions);
-        write_leb_128<PSQTWeightType>(stream, copy->threatPsqtWeights);
+        if (usePSQT)
+            write_leb_128<PSQTWeightType>(stream, copy->threatPsqtWeights);
 
         write_little_endian<WeightType>(stream, copy->weights.data(),
                                         PSQFeatureSet::Dimensions * HalfDimensions);
-        write_leb_128<PSQTWeightType>(stream, copy->psqtWeights);
+        if (usePSQT)
+            write_leb_128<PSQTWeightType>(stream, copy->psqtWeights);
 
         return !stream.fail();
     }
@@ -191,6 +212,8 @@ class FeatureTransformer {
         hash_combine(h, get_raw_data_hash(threatPsqtWeights));
 
         hash_combine(h, get_hash_value());
+        if (!usePSQT)
+            hash_combine(h, u32(17));
 
         return h;
     }
@@ -209,9 +232,9 @@ class FeatureTransformer {
 
         const Color perspectives[2]  = {pos.side_to_move(), ~pos.side_to_move()};
         const auto& psqtAccumulation = accumulatorState.psqtAccumulation;
-        const auto  psqt =
-          (psqtAccumulation[perspectives[0]][bucket] - psqtAccumulation[perspectives[1]][bucket])
-          / 2;
+        const auto psqt = usePSQT
+          ? (psqtAccumulation[perspectives[0]][bucket] - psqtAccumulation[perspectives[1]][bucket]) / 2
+          : 0;
 
         const auto& accumulation = accumulatorState.accumulation;
 
@@ -413,6 +436,9 @@ class FeatureTransformer {
       std::array<PSQTWeightType, PSQFeatureSet::Dimensions * PSQTBuckets> psqtWeights;
     alignas(CacheLineSize)
       std::array<PSQTWeightType, ThreatFeatureSet::Dimensions * PSQTBuckets> threatPsqtWeights;
+
+   private:
+    bool usePSQT = true;
 };
 
 }  // namespace Stockfish::Eval::NNUE
